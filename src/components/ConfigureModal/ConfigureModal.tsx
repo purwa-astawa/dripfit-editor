@@ -10,6 +10,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 interface Props {
   open: boolean;
@@ -44,6 +45,17 @@ export function ConfigureModal({ open, onClose }: Props) {
   const submitUrl = () => {
     if (!urlInput.trim() || loading) return;
     loadImageFromUrl(urlInput);
+  };
+
+  // Closing the modal: if a URL was typed but not yet loaded, load it first so
+  // Done doesn't silently discard it. Skips a reload if it's already the loaded
+  // image (loadImageFromUrl normalizes, so compare the normalized form).
+  const handleDone = () => {
+    const url = urlInput.trim();
+    if (url && !loading && normalizeImageUrl(url) !== image?.url) {
+      loadImageFromUrl(url);
+    }
+    onClose();
   };
 
   const importFromText = (text: string) => {
@@ -215,11 +227,12 @@ export function ConfigureModal({ open, onClose }: Props) {
           </section>
         </div>
 
-        {/* Footer — settings persist as you type; this just closes the modal. */}
+        {/* Footer — settings persist as you type; Done loads any pending image
+            URL, then closes. */}
         <div className="flex justify-end border-t border-slate-200 px-4 py-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleDone}
             className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
           >
             <Check size={15} /> Done

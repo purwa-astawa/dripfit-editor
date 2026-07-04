@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { Callout, ImageMeta, MapDocument, Shape } from '../lib/schema';
+import type {
+  Callout,
+  CalloutProduct,
+  ImageMeta,
+  MapDocument,
+  Shape,
+} from '../lib/schema';
 import { DEFAULT_API_VERSION, parseMapDocument } from '../lib/schema';
 import { normalizeImageUrl } from '../lib/imageUrl';
 
@@ -52,7 +58,7 @@ export interface EditorState {
   commitDraftRegion: (label?: string) => string | null;
   updateCallout: (id: string, patch: Partial<Omit<Callout, 'id'>>) => void;
   updateCalloutShape: (id: string, shape: Shape) => void;
-  setCalloutProducts: (id: string, productIds: string[]) => void;
+  setCalloutProducts: (id: string, products: CalloutProduct[]) => void;
   selectCallout: (id: string | null) => void;
   deleteCallout: (id: string) => void;
   /** Serialize the store to the map.json shape. `products` is left empty — the
@@ -200,7 +206,7 @@ export const useEditorStore = create<EditorState>()(
           id,
           label: `Callout ${get().callouts.length + 1}`,
           shape: { type: 'circle', cx, cy, r: DEFAULT_POINT_RADIUS },
-          productIds: [],
+          products: [],
         };
         set(
           (state) => ({
@@ -233,7 +239,7 @@ export const useEditorStore = create<EditorState>()(
           id,
           label: label?.trim() || `Region ${get().callouts.length + 1}`,
           shape: { type: 'region', points: points.map((p) => ({ ...p })) },
-          productIds: [],
+          products: [],
         };
         set(
           (state) => ({
@@ -270,11 +276,13 @@ export const useEditorStore = create<EditorState>()(
           'updateCalloutShape',
         ),
 
-      setCalloutProducts: (id, productIds) =>
+      setCalloutProducts: (id, products) =>
         set(
           (state) => ({
             callouts: state.callouts.map((c) =>
-              c.id === id ? { ...c, productIds: [...productIds] } : c,
+              c.id === id
+                ? { ...c, products: products.map((p) => ({ ...p })) }
+                : c,
             ),
           }),
           false,
@@ -317,7 +325,7 @@ export const useEditorStore = create<EditorState>()(
                       type: 'region' as const,
                       points: c.shape.points.map((p) => ({ ...p })),
                     },
-              productIds: [...c.productIds],
+              products: c.products.map((p) => ({ ...p })),
             })),
             // Baked snapshot is filled in by the UI export step (async, from the
             // active product source). Empty here.

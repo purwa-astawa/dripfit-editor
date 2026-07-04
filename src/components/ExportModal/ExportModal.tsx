@@ -30,7 +30,7 @@ export function ExportModal({ open, onClose }: Props) {
     let cancelled = false;
     (async () => {
       const doc = exportJson();
-      const ids = doc.data.callouts.flatMap((c) => c.productIds);
+      const ids = doc.data.callouts.flatMap((c) => c.products.map((p) => p.id));
       try {
         doc.data.products = await getProductSnapshots(ids, {
           shopDomain,

@@ -42,6 +42,23 @@ access token" field and to embed in the exported `map.json`.
 - Never print or commit `SHOPIFY_CLIENT_SECRET`. Each run mints a new token
   (max 100 per shop), so reuse the printed one rather than re-running.
 
+## Shared knowledge base — keep the map.json contract in sync
+
+The `map.json` shape is the contract shared with the **Visualizer** (a separate
+project). It is documented in the shared knowledge base at
+`../shared-knowledge/` (i.e. `DripFitLab/shared-knowledge/`), whose
+`map-json-contract.md` mirrors `src/lib/schema.ts`.
+
+- **After committing a change that touches the map.json contract** —
+  `src/lib/schema.ts` (`MapDocument`, `CalloutProduct`, `parseMapDocument`,
+  accepted legacy shapes) or the exported shape from `editorStore.exportJson` —
+  update `../shared-knowledge/map-json-contract.md` to match and add a changelog
+  entry there. Update the sibling docs (`shopify-integration.md`,
+  `editor-notes.md`, `visualizer-notes.md`) if the change affects them.
+- This is a **separate post-commit step**: the shared-knowledge lives outside
+  this git repo (`DripFitLab/` is not a repo), so it can't be part of the commit.
+  Do it right after the commit so the docs never drift from the shipped contract.
+
 ## Project
 
 Admin tool that places **callouts** (point or region) on a background image and

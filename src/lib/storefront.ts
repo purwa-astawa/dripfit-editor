@@ -11,6 +11,31 @@ export interface StorefrontConfig {
 
 // The fields we request map 1:1 onto the normalized `Product` shape in
 // products.ts, so the same `normalize()` handles both live and mock nodes.
+// Product metafields to request. The Storefront API has no "all metafields"
+// query — each metafield must be named by namespace + key. Edit this list to
+// match your store's metafield definitions; leave it empty to skip metafields.
+export const PRODUCT_METAFIELD_IDENTIFIERS: { namespace: string; key: string }[] =
+  [
+    { namespace: 'custom', key: 'fitdrip' },
+  ];
+
+const metafieldsSelection = PRODUCT_METAFIELD_IDENTIFIERS.length
+  ? `metafields(identifiers: [${PRODUCT_METAFIELD_IDENTIFIERS.map(
+      (m) => `{namespace:"${m.namespace}",key:"${m.key}"}`,
+    ).join(', ')}]) {
+      namespace
+      key
+      value
+      type
+      # Resolve file/media references so metafields like fitdrip return the
+      # actual URL, not just a gid://shopify/MediaImage/... reference.
+      reference {
+        ... on MediaImage { image { url altText } }
+        ... on GenericFile { url }
+      }
+    }`
+  : '';
+
 const PRODUCT_FIELDS = `
   id
   title
@@ -18,13 +43,14 @@ const PRODUCT_FIELDS = `
   productType
   vendor
   featuredImage { url altText }
-  priceRange { minVariantPrice { amount currencyCode } }
+  ${metafieldsSelection}
 `;
 
 const LIST_QUERY = `
-  query Products($first: Int!, $query: String) {
-    products(first: $first, query: $query) {
+  query Products($first: Int!, $after: String, $query: String) {
+    products(first: $first, after: $after, query: $query) {
       edges { node { ${PRODUCT_FIELDS} } }
+      pageInfo { hasNextPage endCursor }
     }
   }
 `;
@@ -84,26 +110,63 @@ async function storefrontFetch(
     throw new Error(`Storefront API error: HTTP ${res.status}`);
   }
   const body = (await res.json()) as GraphQLResponse;
+  // Local-dev only: log the Storefront response for debugging. Stripped from
+  // production builds by the `import.meta.env.DEV` guard. The access token is in
+  // the request headers and is never logged here.
+  if (import.meta.env.DEV) {
+    // console.log (not console.debug — DevTools hides "Verbose" by default).
+    console.log('[storefront] response', {
+      endpoint: endpoint(cfg),
+      variables,
+      errors: body.errors,
+      data: body.data,
+    });
+  }
   if (body.errors && body.errors.length > 0) {
     throw new Error(body.errors[0]?.message ?? 'Storefront API returned errors');
   }
   return body.data;
 }
 
-/** Raw product nodes from a `products(first, query)` listing (max 250). */
+// Storefront caps `first` at 250 per page, so a store with more products needs
+// cursor pagination. `MAX_PRODUCTS` is a safety cap so a huge catalog can't loop
+// forever / fetch unbounded pages into the picker.
+const PAGE_SIZE = 250;
+const MAX_PRODUCTS = 5000;
+
+/** Raw product nodes from the `products` connection, paginated to fetch the
+ *  whole catalog (up to MAX_PRODUCTS), not just the first 250. */
 export async function storefrontListProductNodes(
   cfg: StorefrontConfig,
-  opts: { first?: number; query?: string } = {},
+  opts: { query?: string } = {},
 ): Promise<unknown[]> {
-  const data = asRecord(
-    await storefrontFetch(cfg, LIST_QUERY, {
-      first: opts.first ?? 250,
-      query: opts.query ?? null,
-    }),
-  );
-  const products = asRecord(data?.products);
-  const edges = products && Array.isArray(products.edges) ? products.edges : [];
-  return edges.map((e) => asRecord(e)?.node);
+  const all: unknown[] = [];
+  let after: string | null = null;
+
+  while (all.length < MAX_PRODUCTS) {
+    const data = asRecord(
+      await storefrontFetch(cfg, LIST_QUERY, {
+        first: PAGE_SIZE,
+        after,
+        query: opts.query ?? null,
+      }),
+    );
+    const products = asRecord(data?.products);
+    const edges = products && Array.isArray(products.edges) ? products.edges : [];
+    for (const e of edges) all.push(asRecord(e)?.node);
+
+    const pageInfo = asRecord(products?.pageInfo);
+    const endCursor =
+      pageInfo && typeof pageInfo.endCursor === 'string'
+        ? pageInfo.endCursor
+        : null;
+    if (pageInfo?.hasNextPage !== true || !endCursor || edges.length === 0) {
+      break; // no more pages
+    }
+    after = endCursor;
+  }
+
+  return all;
 }
 
 /** Raw product nodes for specific IDs (gid://shopify/Product/...). Missing IDs

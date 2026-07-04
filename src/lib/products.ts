@@ -22,6 +22,8 @@ export interface Product {
   imageUrl: string | null;
   imageAlt: string | null;
   price: { amount: string; currencyCode: string } | null;
+  /** Requested metafields, keyed by `namespace.key` (missing ones omitted). */
+  metafields: Record<string, string>;
 }
 
 interface StorefrontResponse {
@@ -67,7 +69,37 @@ function normalize(node: unknown): Product | null {
       typeof minPrice.currencyCode === 'string'
         ? { amount: minPrice.amount, currencyCode: minPrice.currencyCode }
         : null,
+    metafields: normalizeMetafields(n.metafields),
   };
+}
+
+/** The usable value of a metafield: for file/media references, the resolved
+ *  URL (e.g. fitdrip's image); otherwise the raw scalar `value`. */
+function metafieldValue(m: Record<string, unknown>): string | null {
+  const ref = asRecord(m.reference);
+  if (ref) {
+    const image = asRecord(ref.image); // MediaImage -> image { url }
+    if (image && typeof image.url === 'string') return image.url;
+    if (typeof ref.url === 'string') return ref.url; // GenericFile -> url
+  }
+  return typeof m.value === 'string' ? m.value : null;
+}
+
+/** Storefront returns `metafields` as an array with `null` for identifiers that
+ *  don't exist on a product. Flatten to a `namespace.key -> value` map, using the
+ *  resolved reference URL where the metafield is a file/media reference. */
+function normalizeMetafields(input: unknown): Record<string, string> {
+  if (!Array.isArray(input)) return {};
+  const out: Record<string, string> = {};
+  for (const raw of input) {
+    const m = asRecord(raw);
+    if (!m || typeof m.namespace !== 'string' || typeof m.key !== 'string') {
+      continue;
+    }
+    const value = metafieldValue(m);
+    if (value !== null) out[`${m.namespace}.${m.key}`] = value;
+  }
+  return out;
 }
 
 /** True when we have enough to talk to the live Storefront API. */

@@ -54,7 +54,7 @@ export function CalloutList() {
                   <span className="flex-1 truncate">{c.label}</span>
                   <span className="flex items-center gap-1 text-xs text-slate-400">
                     <Tag size={12} />
-                    {c.productIds.length}
+                    {c.products.length}
                   </span>
                   <button
                     type="button"

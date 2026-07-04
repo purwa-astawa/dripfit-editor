@@ -23,11 +23,19 @@ export type CircleShape = { type: 'circle'; cx: number; cy: number; r: number };
 export type RegionShape = { type: 'region'; points: Point[] };
 export type Shape = CircleShape | RegionShape;
 
+/** A product attached to a callout. `image` optionally overrides which image to
+ *  show *on this callout* (e.g. the product's fitdrip image); when absent the
+ *  widget falls back to `data.products[id].featuredImage`. */
+export interface CalloutProduct {
+  id: string;
+  image?: string;
+}
+
 export interface Callout {
   id: string;
   label: string;
   shape: Shape;
-  productIds: string[];
+  products: CalloutProduct[];
 }
 
 export interface ImageMeta {
@@ -175,19 +183,40 @@ function parseCallout(input: unknown, index: number): Callout {
   if (typeof c.label !== 'string') {
     throw new Error(`map.json: callouts[${index}].label must be a string`);
   }
-  if (
-    !Array.isArray(c.productIds) ||
-    !c.productIds.every((p) => typeof p === 'string')
-  ) {
-    throw new Error(`map.json: callouts[${index}].productIds must be string[]`);
-  }
 
   return {
     id: c.id,
     label: c.label,
     shape: parseShape(c.shape, index),
-    productIds: c.productIds as string[],
+    products: parseCalloutProducts(c, index),
   };
+}
+
+/** Accept the current `products: [{ id, image? }]` shape and migrate the legacy
+ *  `productIds: string[]` shape. */
+function parseCalloutProducts(
+  c: Record<string, unknown>,
+  index: number,
+): CalloutProduct[] {
+  if (Array.isArray(c.products)) {
+    return c.products.map((raw, j) => {
+      const p = raw as Record<string, unknown>;
+      if (typeof p?.id !== 'string') {
+        throw new Error(
+          `map.json: callouts[${index}].products[${j}].id must be a string`,
+        );
+      }
+      return typeof p.image === 'string'
+        ? { id: p.id, image: p.image }
+        : { id: p.id };
+    });
+  }
+  if (Array.isArray(c.productIds) && c.productIds.every((p) => typeof p === 'string')) {
+    return (c.productIds as string[]).map((id) => ({ id }));
+  }
+  throw new Error(
+    `map.json: callouts[${index}] must have products[{id}] (or legacy productIds[])`,
+  );
 }
 
 function parseShape(input: unknown, index: number): Shape {

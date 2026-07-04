@@ -72,11 +72,11 @@ export function CalloutEditPanel() {
 
         <div className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-slate-500">
-            Products ({callout.productIds.length})
+            Products ({callout.products.length})
           </span>
           <ProductPicker
-            selectedIds={callout.productIds}
-            onChange={(ids) => setCalloutProducts(callout.id, ids)}
+            value={callout.products}
+            onChange={(products) => setCalloutProducts(callout.id, products)}
           />
         </div>
       </div>
