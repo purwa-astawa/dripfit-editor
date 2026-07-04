@@ -1,7 +1,7 @@
 # DripFit Editor — Image Mapper Generator
 
-Admin-side tool for placing point/polygon markers on a background image, attaching
-compatible product IDs to each, and exporting a `map.json` consumed by the
+Admin-side tool for placing **callouts** (point or region) on a background image,
+attaching compatible product IDs to each, and exporting a `map.json` consumed by the
 Visualizer storefront widget.
 
 ## Stack
@@ -13,27 +13,36 @@ React + Vite + TypeScript · Zustand (state) · Tailwind CSS · react-konva + us
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
+npm run dev        # http://localhost:5173 (hot reload; --host --open)
 npm run build      # typecheck (tsc -b) + production build to dist/
 npm run preview    # serve the production build
 ```
 
 ## How it works
 
-1. **Upload an image** from the toolbar. Its natural `width`/`height` are captured
-   for ratio conversion.
-2. **Place Point** — click on the image to drop a circle marker. Drag it to move;
+1. **Load a background image** by pasting a public image URL in the toolbar and
+   pressing **Load** (or Enter). The store tracks `imageStatus`
+   (`idle` / `loading` / `error`) while the image resolves, and its natural
+   `width`/`height` are captured for ratio conversion. (Local file upload is
+   temporarily hidden — the handler is kept commented in `Toolbar.tsx`.)
+
+   Common **share links are auto-rewritten** to their direct-image form
+   (`src/lib/imageUrl.ts`), since share pages serve HTML, not image bytes:
+   - Dropbox `www.dropbox.com/…?dl=0` → `dl.dropboxusercontent.com/…`
+   - Google Drive `drive.google.com/file/d/{id}/view` →
+     `drive.google.com/thumbnail?id={id}&sz=w2048`
+2. **Point** tool — click on the image to drop a circular callout. Drag it to move;
    drag the white handle to resize its radius.
-3. **Draw Polygon** — click to add points (live dashed preview follows the cursor),
+3. **Region** tool — click to add points (a live dashed preview follows the cursor),
    then double-click or press **Finish** to commit (needs ≥ 3 points). Select it to
-   drag individual vertices, or drag the body to move the whole shape.
-4. **Select** a marker to edit its label and attach products (multi-select, backed
+   drag individual vertices, or drag the body to move the whole region.
+4. **Select** a callout to edit its label and attach products (multi-select, backed
    by `public/mock-fashion-products.json` in local dev).
 5. **Export JSON** downloads `map.json`; **Import** loads one back (round-trips).
 
 ## Coordinate convention
 
-Every marker coordinate is stored as a **ratio (0–1)** of the image's natural
+Every callout coordinate is stored as a **ratio (0–1)** of the image's natural
 dimensions — never raw pixels — so the same `map.json` renders identically at any
 size in both this editor and the Visualizer widget. The Konva stage is sized to fit
 the viewport; ratios are converted to/from stage pixels on every render and drag via
@@ -45,24 +54,49 @@ the stored ratios.
 ```
 src/
   components/
-    Canvas/           # Stage, background image, PointMarker, PolygonMarker
-    Toolbar/          # tool toggles, image upload, import/export
-    MarkerList/       # sidebar list of markers
-    MarkerEditPanel/  # label + shape summary + product picker for the selection
-    ProductPicker/    # searchable multi-select against the catalog
+    Canvas/             # Stage, background image, PointCallout, RegionCallout
+    Toolbar/            # tool toggles, image-URL input, import/export
+    CalloutList/        # sidebar list of callouts
+    CalloutEditPanel/   # label + shape summary + product picker for the selection
+    ProductPicker/      # searchable multi-select against the catalog
   store/editorStore.ts  # single Zustand store (see spec for shape)
   lib/
-    geometry.ts       # ratio<->pixel conversion + geometric wrappers (centroid,
-                      #   area, point-in-polygon, self-intersection)
-    schema.ts         # map.json types + defensive parse/validate
-    products.ts       # catalog loader (mock now, Storefront API later)
+    geometry.ts         # ratio<->pixel conversion + geometric wrappers (centroid,
+                        #   area, point-in-polygon, self-intersection)
+    imageUrl.ts         # rewrite Dropbox/Drive share links to direct-image URLs
+    schema.ts           # map.json types + defensive parse/validate
+    products.ts         # catalog loader (mock now, Storefront API later)
 ```
 
 ## Data model
 
-See the exported `map.json` schema in the project spec. Circles are stored as
-`{ type: 'circle', cx, cy, r }`, polygons as `{ type: 'polygon', points: [{x,y}] }`,
-all in ratio units.
+`map.json` holds `{ mapId, image: { url, width, height }, callouts: [...] }`. A callout
+is `{ id, label, shape, productIds }` where `shape` is one of:
+
+- `{ type: 'circle', cx, cy, r }`
+- `{ type: 'region', points: [{ x, y }, …] }`  (≥ 3 points)
+
+All coordinates are ratio units (0–1). **Note:** this schema uses the DripFit
+vocabulary (`callouts`, `type: 'region'`); the Visualizer widget must read these keys
+or it won't parse the exported `map.json`.
+
+## Caveats & notes
+
+- **Share links must be public.** A Google Drive file must be shared
+  "Anyone with the link"; a private file's thumbnail won't load.
+- **Drive `uc?export=view` doesn't work** for browser `<img>` loads (it redirects
+  through a cookie-gated page — returns bytes to `curl` but is rejected in-page), so
+  we use the `thumbnail` endpoint, which hotlinks reliably but **caps at ~2048px**.
+  For a very large source image the background is a downscaled copy. Ratios stay
+  correct (they're relative to the loaded image), but the Visualizer must load the
+  **same** URL that's exported, or the displayed image won't match the coordinates.
+- **Exported `image.url` is whatever was loaded** — for a remote URL it's the
+  normalized direct link; if local file upload is re-enabled it's a transient
+  `blob:`/`data:` URL that won't persist. In the full Shopify app, persist the image
+  to a stable CDN URL before export.
+- **Canvas taint:** remote images load without `crossOrigin`, so they display fine but
+  taint the Konva canvas. Only relevant if pixel export (`toDataURL`) is added later —
+  today we only export JSON, so it's a non-issue.
 
 ## Dev note
 

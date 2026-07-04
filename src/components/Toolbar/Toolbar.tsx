@@ -1,9 +1,11 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   MousePointer2,
   MapPin,
   Hexagon,
-  ImagePlus,
+  Link as LinkIcon,
+  Loader2,
+  AlertCircle,
   Download,
   Upload,
   Check,
@@ -20,32 +22,42 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2 }[] = [
 export function Toolbar() {
   const tool = useEditorStore((s) => s.tool);
   const setTool = useEditorStore((s) => s.setTool);
-  const setImage = useEditorStore((s) => s.setImage);
   const image = useEditorStore((s) => s.image);
+  const imageStatus = useEditorStore((s) => s.imageStatus);
+  const imageError = useEditorStore((s) => s.imageError);
+  const loadImageFromUrl = useEditorStore((s) => s.loadImageFromUrl);
   const draftRegionPoints = useEditorStore((s) => s.draftRegionPoints);
   const commitDraftRegion = useEditorStore((s) => s.commitDraftRegion);
   const clearDraftRegion = useEditorStore((s) => s.clearDraftRegion);
   const exportJson = useEditorStore((s) => s.exportJson);
   const loadFromJson = useEditorStore((s) => s.loadFromJson);
 
-  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [urlInput, setUrlInput] = useState('');
   const jsonInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // allow re-selecting the same file
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const probe = new Image();
-    probe.onload = () => {
-      setImage(url, probe.naturalWidth, probe.naturalHeight);
-    };
-    probe.onerror = () => {
-      URL.revokeObjectURL(url);
-      alert('Could not load that image file.');
-    };
-    probe.src = url;
+  const loading = imageStatus === 'loading';
+
+  const submitUrl = () => {
+    if (!urlInput.trim() || loading) return;
+    loadImageFromUrl(urlInput);
   };
+
+  // --- File upload (hidden for now — kept for when local uploads return) ---
+  // const imageInputRef = useRef<HTMLInputElement>(null);
+  // const setImage = useEditorStore((s) => s.setImage);
+  // const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0];
+  //   e.target.value = ''; // allow re-selecting the same file
+  //   if (!file) return;
+  //   const url = URL.createObjectURL(file);
+  //   const probe = new Image();
+  //   probe.onload = () => setImage(url, probe.naturalWidth, probe.naturalHeight);
+  //   probe.onerror = () => {
+  //     URL.revokeObjectURL(url);
+  //     alert('Could not load that image file.');
+  //   };
+  //   probe.src = url;
+  // };
 
   const handleExport = () => {
     const doc = exportJson();
@@ -135,14 +147,47 @@ export function Toolbar() {
       )}
 
       <div className="ml-auto flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => imageInputRef.current?.click()}
-          className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
-        >
-          <ImagePlus size={15} />
-          {image ? 'Change Image' : 'Upload Image'}
-        </button>
+        {/* Public image URL input */}
+        <div className="flex items-center">
+          <div className="relative">
+            <LinkIcon
+              size={14}
+              className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="url"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitUrl();
+              }}
+              placeholder="Public image URL…"
+              disabled={loading}
+              className="w-64 rounded-l-md border border-slate-300 py-1.5 pl-7 pr-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={submitUrl}
+            disabled={loading || !urlInput.trim()}
+            className="flex items-center gap-1.5 rounded-r-md border border-l-0 border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+          >
+            {loading ? (
+              <>
+                <Loader2 size={15} className="animate-spin" /> Loading…
+              </>
+            ) : (
+              <>Load</>
+            )}
+          </button>
+        </div>
+
+        {imageStatus === 'error' && (
+          <span className="flex items-center gap-1 text-xs text-red-600">
+            <AlertCircle size={13} /> {imageError}
+          </span>
+        )}
+
         <button
           type="button"
           onClick={() => jsonInputRef.current?.click()}
@@ -162,13 +207,6 @@ export function Toolbar() {
         </button>
       </div>
 
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleImageFile}
-      />
       <input
         ref={jsonInputRef}
         type="file"

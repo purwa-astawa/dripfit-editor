@@ -2,8 +2,12 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { Callout, ImageMeta, Shape } from '../lib/schema';
 import { parseMapDocument } from '../lib/schema';
+import { normalizeImageUrl } from '../lib/imageUrl';
 
 export type Tool = 'select' | 'place-point' | 'draw-region';
+
+/** Lifecycle of loading a background image from a URL. */
+export type ImageStatus = 'idle' | 'loading' | 'error';
 
 export interface Point {
   x: number;
@@ -13,12 +17,17 @@ export interface Point {
 export interface EditorState {
   mapId: string;
   image: ImageMeta | null;
+  imageStatus: ImageStatus;
+  imageError: string | null;
   callouts: Callout[];
   selectedCalloutId: string | null;
   tool: Tool;
   draftRegionPoints: Point[];
 
   setImage: (url: string, width: number, height: number) => void;
+  /** Load a public image URL: sets imageStatus 'loading', then resolves the
+   *  image's natural dimensions and stores it (or sets 'error'). */
+  loadImageFromUrl: (url: string) => void;
   setTool: (tool: Tool) => void;
   addPointCallout: (cx: number, cy: number) => string;
   addRegionPoint: (x: number, y: number) => void;
@@ -53,13 +62,56 @@ export const useEditorStore = create<EditorState>()(
     (set, get) => ({
       mapId: uuid(),
       image: null,
+      imageStatus: 'idle',
+      imageError: null,
       callouts: [],
       selectedCalloutId: null,
       tool: 'select',
       draftRegionPoints: [],
 
       setImage: (url, width, height) =>
-        set({ image: { url, width, height } }, false, 'setImage'),
+        set(
+          { image: { url, width, height }, imageStatus: 'idle', imageError: null },
+          false,
+          'setImage',
+        ),
+
+      loadImageFromUrl: (url) => {
+        // Rewrite Dropbox / Google Drive share links to their direct-image form.
+        const src = normalizeImageUrl(url);
+        if (!src) return;
+        set({ imageStatus: 'loading', imageError: null }, false, 'loadImage/start');
+
+        const probe = new Image();
+        probe.onload = () => {
+          // Ignore a resolved load if a newer request superseded this one.
+          if (get().imageStatus !== 'loading') return;
+          set(
+            {
+              image: {
+                url: src,
+                width: probe.naturalWidth,
+                height: probe.naturalHeight,
+              },
+              imageStatus: 'idle',
+              imageError: null,
+            },
+            false,
+            'loadImage/success',
+          );
+        };
+        probe.onerror = () => {
+          set(
+            {
+              imageStatus: 'error',
+              imageError: 'Could not load an image from that URL.',
+            },
+            false,
+            'loadImage/error',
+          );
+        };
+        probe.src = src;
+      },
 
       setTool: (tool) =>
         set(
@@ -201,6 +253,8 @@ export const useEditorStore = create<EditorState>()(
           {
             mapId: doc.mapId,
             image: doc.image,
+            imageStatus: 'idle',
+            imageError: null,
             callouts: doc.callouts,
             selectedCalloutId: null,
             tool: 'select',
@@ -216,6 +270,8 @@ export const useEditorStore = create<EditorState>()(
           {
             mapId: uuid(),
             image: null,
+            imageStatus: 'idle',
+            imageError: null,
             callouts: [],
             selectedCalloutId: null,
             tool: 'select',
