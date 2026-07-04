@@ -1,0 +1,134 @@
+{
+  "products": {
+    "edges": [
+      {
+        "node": {
+          "id": "gid://shopify/Product/1001",
+          "title": "Oversized Cotton Hoodie",
+          "handle": "oversized-cotton-hoodie",
+          "productType": "Hoodie",
+          "vendor": "DripFit",
+          "featuredImage": {
+            "url": "https://cdn.shopify.com/mock/hoodie.jpg",
+            "altText": "Oversized cotton hoodie"
+          },
+          "priceRange": {
+            "minVariantPrice": { "amount": "68.00", "currencyCode": "USD" }
+          }
+        }
+      },
+      {
+        "node": {
+          "id": "gid://shopify/Product/1002",
+          "title": "High-Rise Cargo Pants",
+          "handle": "high-rise-cargo-pants",
+          "productType": "Pants",
+          "vendor": "DripFit",
+          "featuredImage": {
+            "url": "https://cdn.shopify.com/mock/cargo.jpg",
+            "altText": "High-rise cargo pants"
+          },
+          "priceRange": {
+            "minVariantPrice": { "amount": "82.00", "currencyCode": "USD" }
+          }
+        }
+      },
+      {
+        "node": {
+          "id": "gid://shopify/Product/1003",
+          "title": "Chunky Dad Sneakers",
+          "handle": "chunky-dad-sneakers",
+          "productType": "Footwear",
+          "vendor": "DripFit",
+          "featuredImage": {
+            "url": "https://cdn.shopify.com/mock/sneakers.jpg",
+            "altText": "Chunky dad sneakers"
+          },
+          "priceRange": {
+            "minVariantPrice": { "amount": "120.00", "currencyCode": "USD" }
+          }
+        }
+      },
+      {
+        "node": {
+          "id": "gid://shopify/Product/1004",
+          "title": "Ribbed Beanie",
+          "handle": "ribbed-beanie",
+          "productType": "Accessories",
+          "vendor": "DripFit",
+          "featuredImage": {
+            "url": "https://cdn.shopify.com/mock/beanie.jpg",
+            "altText": "Ribbed beanie"
+          },
+          "priceRange": {
+            "minVariantPrice": { "amount": "24.00", "currencyCode": "USD" }
+          }
+        }
+      },
+      {
+        "node": {
+          "id": "gid://shopify/Product/1005",
+          "title": "Cropped Puffer Jacket",
+          "handle": "cropped-puffer-jacket",
+          "productType": "Outerwear",
+          "vendor": "DripFit",
+          "featuredImage": {
+            "url": "https://cdn.shopify.com/mock/puffer.jpg",
+            "altText": "Cropped puffer jacket"
+          },
+          "priceRange": {
+            "minVariantPrice": { "amount": "148.00", "currencyCode": "USD" }
+          }
+        }
+      },
+      {
+        "node": {
+          "id": "gid://shopify/Product/1006",
+          "title": "Leather Crossbody Bag",
+          "handle": "leather-crossbody-bag",
+          "productType": "Bags",
+          "vendor": "DripFit",
+          "featuredImage": {
+            "url": "https://cdn.shopify.com/mock/bag.jpg",
+            "altText": "Leather crossbody bag"
+          },
+          "priceRange": {
+            "minVariantPrice": { "amount": "95.00", "currencyCode": "USD" }
+          }
+        }
+      },
+      {
+        "node": {
+          "id": "gid://shopify/Product/1007",
+          "title": "Graphic Oversized Tee",
+          "handle": "graphic-oversized-tee",
+          "productType": "T-Shirt",
+          "vendor": "DripFit",
+          "featuredImage": {
+            "url": "https://cdn.shopify.com/mock/tee.jpg",
+            "altText": "Graphic oversized tee"
+          },
+          "priceRange": {
+            "minVariantPrice": { "amount": "38.00", "currencyCode": "USD" }
+          }
+        }
+      },
+      {
+        "node": {
+          "id": "gid://shopify/Product/1008",
+          "title": "Round Metal Sunglasses",
+          "handle": "round-metal-sunglasses",
+          "productType": "Accessories",
+          "vendor": "DripFit",
+          "featuredImage": {
+            "url": "https://cdn.shopify.com/mock/sunglasses.jpg",
+            "altText": "Round metal sunglasses"
+          },
+          "priceRange": {
+            "minVariantPrice": { "amount": "45.00", "currencyCode": "USD" }
+          }
+        }
+      }
+    ]
+  }
+}
