@@ -15,7 +15,7 @@ import { useEditorStore, type Tool } from '../../store/editorStore';
 
 const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2 }[] = [
   { id: 'select', label: 'Select', icon: MousePointer2 },
-  { id: 'place-point', label: 'Point', icon: MapPin },
+  { id: 'place-point', label: 'POI', icon: MapPin },
   { id: 'draw-region', label: 'Region', icon: Hexagon },
 ];
 
@@ -92,9 +92,7 @@ export function Toolbar() {
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2">
-      <span className="mr-2 text-sm font-semibold text-slate-800">
-        Image Mapper
-      </span>
+      <img src="/logo.png" alt="DripFit Lab by GARUSIN" className="mr-2 h-10 w-auto" />
 
       {/* Tool toggles */}
       <div className="flex overflow-hidden rounded-md border border-slate-300">
@@ -104,6 +102,7 @@ export function Toolbar() {
             <button
               key={id}
               type="button"
+              data-tour={`tool-${id}`}
               disabled={!image}
               onClick={() => setTool(id)}
               className={[
@@ -125,7 +124,8 @@ export function Toolbar() {
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-slate-500">
             {draftRegionPoints.length} pt
-            {draftRegionPoints.length === 1 ? '' : 's'} · dbl-click to finish
+            {draftRegionPoints.length === 1 ? '' : 's'} · dbl-click or Enter to
+            finish
           </span>
           <button
             type="button"
@@ -148,7 +148,7 @@ export function Toolbar() {
 
       <div className="ml-auto flex items-center gap-2">
         {/* Public image URL input */}
-        <div className="flex items-center">
+        <div className="flex items-center" data-tour="image-url">
           <div className="relative">
             <LinkIcon
               size={14}
@@ -161,9 +161,10 @@ export function Toolbar() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') submitUrl();
               }}
-              placeholder="Public image URL…"
+              placeholder="Paste a public image URL, then Load…"
+              title="Paste a public image URL and click Load (or press Enter). Dropbox and Google Drive share links are supported — the file must be publicly shared."
               disabled={loading}
-              className="w-64 rounded-l-md border border-slate-300 py-1.5 pl-7 pr-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50"
+              className="w-80 rounded-l-md border border-slate-300 py-1.5 pl-7 pr-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50"
             />
           </div>
           <button

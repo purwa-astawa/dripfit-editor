@@ -24,7 +24,7 @@ export function CalloutList() {
 
       {callouts.length === 0 ? (
         <p className="px-3 py-4 text-sm text-slate-400">
-          No callouts yet. Use the Point or Region tool to add one.
+          No callouts yet. Use the POI or Region tool to add one.
         </p>
       ) : (
         <ul className="flex-1 overflow-y-auto">

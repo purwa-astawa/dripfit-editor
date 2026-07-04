@@ -4,6 +4,8 @@ import { Toolbar } from './components/Toolbar/Toolbar';
 import { Canvas } from './components/Canvas/Canvas';
 import { CalloutList } from './components/CalloutList/CalloutList';
 import { CalloutEditPanel } from './components/CalloutEditPanel/CalloutEditPanel';
+import { Tour } from './components/Tour/Tour';
+import { MobileWarning } from './components/MobileWarning/MobileWarning';
 
 export default function App() {
   const image = useEditorStore((s) => s.image);
@@ -12,6 +14,8 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col bg-slate-100 text-slate-900">
+      <MobileWarning />
+      <Tour />
       <Toolbar />
 
       <div className="flex min-h-0 flex-1">

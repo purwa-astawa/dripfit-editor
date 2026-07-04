@@ -7,7 +7,8 @@ Visualizer storefront widget.
 ## Stack
 
 React + Vite + TypeScript · Zustand (state) · Tailwind CSS · react-konva + use-image
-(canvas) · geometric (polygon math) · lucide-react (icons).
+(canvas) · geometric (polygon math) · lucide-react (icons) · react-joyride
+(onboarding tour).
 
 ## Run
 
@@ -31,14 +32,26 @@ npm run preview    # serve the production build
    - Dropbox `www.dropbox.com/…?dl=0` → `dl.dropboxusercontent.com/…`
    - Google Drive `drive.google.com/file/d/{id}/view` →
      `drive.google.com/thumbnail?id={id}&sz=w2048`
-2. **Point** tool — click on the image to drop a circular callout. Drag it to move;
+2. **POI** tool — click on the image to drop a circular callout. Drag it to move;
    drag the white handle to resize its radius.
 3. **Region** tool — click to add points (a live dashed preview follows the cursor),
-   then double-click or press **Finish** to commit (needs ≥ 3 points). Select it to
-   drag individual vertices, or drag the body to move the whole region.
+   then **double-click, press Enter, or click Finish** to commit (needs ≥ 3 points).
+   Select it to drag individual vertices, or drag the body to move the whole region.
 4. **Select** a callout to edit its label and attach products (multi-select, backed
    by `public/mock-fashion-products.json` in local dev).
 5. **Export JSON** downloads `map.json`; **Import** loads one back (round-trips).
+
+### Onboarding & responsiveness
+
+- A **guided tour** (`react-joyride`, `src/components/Tour/Tour.tsx`) runs in two
+  phases: first it points a new user at the image-URL input, then—once an image is
+  loaded—it highlights the **POI** and **Region** tools. Each phase shows once and
+  is remembered in `localStorage` (`dripfit-tour-intro-seen`,
+  `dripfit-tour-tools-seen`). Clear those keys to replay it.
+- On **phone-sized screens** a full-screen advisory
+  (`src/components/MobileWarning/MobileWarning.tsx`) recommends a tablet/laptop/desktop
+  (with a "Continue anyway" escape). A device is treated as a phone when its shorter
+  viewport side is < 600px (catches portrait and landscape; tablets/laptops pass).
 
 ## Coordinate convention
 
@@ -59,6 +72,8 @@ src/
     CalloutList/        # sidebar list of callouts
     CalloutEditPanel/   # label + shape summary + product picker for the selection
     ProductPicker/      # searchable multi-select against the catalog
+    Tour/               # two-phase react-joyride onboarding tour
+    MobileWarning/      # full-screen "use a bigger screen" advisory on phones
   store/editorStore.ts  # single Zustand store (see spec for shape)
   lib/
     geometry.ts         # ratio<->pixel conversion + geometric wrappers (centroid,

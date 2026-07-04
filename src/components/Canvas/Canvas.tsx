@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Circle, Image as KonvaImage, Layer, Line, Stage } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import useImage from 'use-image';
@@ -29,6 +29,31 @@ export function Canvas() {
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
 
   const [img] = useImage(image?.url ?? '');
+
+  // Pressing Enter while drawing a region commits it (same as double-click /
+  // "Finish"). Ignored while typing in a text field so it doesn't hijack forms.
+  useEffect(() => {
+    if (tool !== 'draw-region') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      if (draftRegionPoints.length >= 3) {
+        e.preventDefault();
+        commitDraftRegion();
+        setCursor(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [tool, draftRegionPoints.length, commitDraftRegion]);
 
   if (!image) return null;
 
