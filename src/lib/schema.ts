@@ -20,8 +20,79 @@ export interface Point {
 }
 
 export type CircleShape = { type: 'circle'; cx: number; cy: number; r: number };
-export type RegionShape = { type: 'region'; points: Point[] };
+
+/** Where the visualiser shows the region's beacon (the animated indicator),
+ *  relative to the region's bounding box. */
+export const BEACON_POSITIONS = [
+  'topleft',
+  'top',
+  'topright',
+  'left',
+  'center',
+  'right',
+  'bottomleft',
+  'bottom',
+  'bottomright',
+] as const;
+export type BeaconPosition = (typeof BEACON_POSITIONS)[number];
+export const DEFAULT_BEACON: BeaconPosition = 'center';
+
+/** The beacon: an anchor name plus its resolved (ratio) coordinate on the
+ *  region's bounding box, so the visualiser can place the indicator directly. */
+export interface BeaconAnchor {
+  position: BeaconPosition;
+  x: number;
+  y: number;
+}
+
+export type RegionShape = {
+  type: 'region';
+  points: Point[];
+  beacon: BeaconAnchor;
+};
 export type Shape = CircleShape | RegionShape;
+
+/** Resolve a beacon anchor's (ratio) coordinate from the region's bounding box. */
+export function beaconPoint(
+  points: Point[],
+  position: BeaconPosition,
+): { x: number; y: number } {
+  if (points.length === 0) return { x: 0, y: 0 };
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const p of points) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const midX = (minX + maxX) / 2;
+  const midY = (minY + maxY) / 2;
+  const table: Record<BeaconPosition, [number, number]> = {
+    topleft: [minX, minY],
+    top: [midX, minY],
+    topright: [maxX, minY],
+    left: [minX, midY],
+    center: [midX, midY],
+    right: [maxX, midY],
+    bottomleft: [minX, maxY],
+    bottom: [midX, maxY],
+    bottomright: [maxX, maxY],
+  };
+  const [x, y] = table[position];
+  return { x, y };
+}
+
+/** Build a BeaconAnchor (position + resolved coordinate) for a region. */
+export function makeBeacon(
+  points: Point[],
+  position: BeaconPosition,
+): BeaconAnchor {
+  const { x, y } = beaconPoint(points, position);
+  return { position, x, y };
+}
 
 /** A product attached to a callout. `image` optionally overrides which image to
  *  show *on this callout* (e.g. the product's fitdrip image); when absent the
@@ -49,7 +120,6 @@ export interface ProductSnapshot {
   title: string;
   handle?: string;
   featuredImage?: string | null;
-  price?: { amount: string; currencyCode: string } | null;
 }
 
 export interface MapData {
@@ -162,10 +232,6 @@ function parseProducts(input: unknown): Record<string, ProductSnapshot> {
       handle: typeof p.handle === 'string' ? p.handle : undefined,
       featuredImage:
         typeof p.featuredImage === 'string' ? p.featuredImage : null,
-      price:
-        p.price && typeof p.price === 'object'
-          ? (p.price as ProductSnapshot['price'])
-          : null,
     };
   }
   return out;
@@ -253,7 +319,22 @@ function parseShape(input: unknown, index: number): Shape {
       }
       return { x: pt.x, y: pt.y };
     });
-    return { type: 'region', points };
+    // Accept beacon as a string ("topleft") or an object ({ position, x, y });
+    // the coordinate is always recomputed from the parsed points so it stays
+    // consistent with the region geometry.
+    const raw = s.beacon;
+    const posCandidate =
+      typeof raw === 'string'
+        ? raw
+        : raw && typeof raw === 'object' && 'position' in raw
+          ? (raw as Record<string, unknown>).position
+          : undefined;
+    const position = (BEACON_POSITIONS as readonly string[]).includes(
+      posCandidate as string,
+    )
+      ? (posCandidate as BeaconPosition)
+      : DEFAULT_BEACON;
+    return { type: 'region', points, beacon: makeBeacon(points, position) };
   }
 
   throw new Error(

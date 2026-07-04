@@ -7,7 +7,12 @@ import type {
   MapDocument,
   Shape,
 } from '../lib/schema';
-import { DEFAULT_API_VERSION, parseMapDocument } from '../lib/schema';
+import {
+  DEFAULT_API_VERSION,
+  DEFAULT_BEACON,
+  makeBeacon,
+  parseMapDocument,
+} from '../lib/schema';
 import { normalizeImageUrl } from '../lib/imageUrl';
 
 export type Tool = 'select' | 'place-point' | 'draw-region';
@@ -238,7 +243,11 @@ export const useEditorStore = create<EditorState>()(
         const callout: Callout = {
           id,
           label: label?.trim() || `Region ${get().callouts.length + 1}`,
-          shape: { type: 'region', points: points.map((p) => ({ ...p })) },
+          shape: {
+            type: 'region',
+            points: points.map((p) => ({ ...p })),
+            beacon: makeBeacon(points, DEFAULT_BEACON),
+          },
           products: [],
         };
         set(
@@ -265,16 +274,23 @@ export const useEditorStore = create<EditorState>()(
           'updateCallout',
         ),
 
-      updateCalloutShape: (id, shape) =>
+      updateCalloutShape: (id, shape) => {
+        // Keep the region beacon's coordinate in sync with its points (the shape
+        // may have been dragged/reshaped, moving the bounding box).
+        const next =
+          shape.type === 'region'
+            ? { ...shape, beacon: makeBeacon(shape.points, shape.beacon.position) }
+            : shape;
         set(
           (state) => ({
             callouts: state.callouts.map((c) =>
-              c.id === id ? { ...c, shape } : c,
+              c.id === id ? { ...c, shape: next } : c,
             ),
           }),
           false,
           'updateCalloutShape',
-        ),
+        );
+      },
 
       setCalloutProducts: (id, products) =>
         set(
@@ -324,6 +340,7 @@ export const useEditorStore = create<EditorState>()(
                   : {
                       type: 'region' as const,
                       points: c.shape.points.map((p) => ({ ...p })),
+                      beacon: { ...c.shape.beacon },
                     },
               products: c.products.map((p) => ({ ...p })),
             })),

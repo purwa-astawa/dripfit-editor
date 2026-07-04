@@ -21,7 +21,6 @@ export interface Product {
   vendor: string;
   imageUrl: string | null;
   imageAlt: string | null;
-  price: { amount: string; currencyCode: string } | null;
   /** Requested metafields, keyed by `namespace.key` (missing ones omitted). */
   metafields: Record<string, string>;
 }
@@ -49,7 +48,6 @@ function normalize(node: unknown): Product | null {
   if (typeof n.id !== 'string' || typeof n.title !== 'string') return null;
 
   const featuredImage = asRecord(n.featuredImage);
-  const minPrice = asRecord(asRecord(n.priceRange)?.minVariantPrice);
 
   return {
     id: n.id,
@@ -63,12 +61,6 @@ function normalize(node: unknown): Product | null {
     imageAlt: featuredImage && typeof featuredImage.altText === 'string'
       ? featuredImage.altText
       : null,
-    price:
-      minPrice &&
-      typeof minPrice.amount === 'string' &&
-      typeof minPrice.currencyCode === 'string'
-        ? { amount: minPrice.amount, currencyCode: minPrice.currencyCode }
-        : null,
     metafields: normalizeMetafields(n.metafields),
   };
 }
@@ -182,24 +174,7 @@ export async function getProductSnapshots(
       title: p.title,
       handle: p.handle || undefined,
       featuredImage: p.imageUrl,
-      price: p.price,
     };
   }
   return out;
-}
-
-export function formatPrice(
-  price: { amount: string; currencyCode: string } | null,
-): string {
-  if (!price) return '';
-  const amount = Number(price.amount);
-  if (Number.isNaN(amount)) return '';
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: price.currencyCode,
-    }).format(amount);
-  } catch {
-    return `${price.amount} ${price.currencyCode}`;
-  }
 }

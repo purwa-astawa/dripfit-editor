@@ -9,7 +9,7 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react';
-import { fetchProducts, formatPrice, type Product } from '../../lib/products';
+import { fetchProducts, type Product } from '../../lib/products';
 import { useEditorStore } from '../../store/editorStore';
 import type { CalloutProduct } from '../../lib/schema';
 
@@ -223,9 +223,6 @@ export function ProductPicker({ value, onChange }: Props) {
                     <span className="block truncate text-xs text-slate-400">
                       {p.productType}
                     </span>
-                  </span>
-                  <span className="flex-none text-xs text-slate-500">
-                    {formatPrice(p.price)}
                   </span>
                 </button>
               </li>

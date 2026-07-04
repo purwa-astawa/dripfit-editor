@@ -60,7 +60,7 @@ const configureSteps: Step[] = [
     placement: 'bottom',
     title: '3 · Storefront API access token',
     content:
-      'A public Storefront API access token. It’s safe to embed in the exported map.json and lets the widget fetch product details (title, price, image).',
+      'A public Storefront API access token. It’s safe to embed in the exported map.json and lets the widget fetch product details (title, image).',
   },
   {
     target: '[data-tour="cfg-import"]',

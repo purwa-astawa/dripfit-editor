@@ -71,6 +71,10 @@ exports a `map.json` for the Visualizer widget. Coordinates are stored as ratios
 - **region** — a polygon-shaped callout (was previously "polygon"); the shape
   `type` value is `"region"`.
 - **point** / **circle** — a circular callout; unchanged.
+- **beacon** — an animated indicator the Visualizer shows for a **region**
+  callout. Its `beacon` field is one of 9 anchor positions (`topleft`, `top`,
+  `topright`, `left`, `center`, `right`, `bottomleft`, `bottom`, `bottomright`);
+  default `center`. Circle callouts have no beacon.
 - Pure geometry helpers in `src/lib/geometry.ts` intentionally keep the
   mathematical term "polygon" (they wrap the `geometric` library); that is not the
   domain "region" concept and should stay as-is.
