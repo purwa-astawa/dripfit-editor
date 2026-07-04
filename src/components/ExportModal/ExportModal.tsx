@@ -21,6 +21,7 @@ export function ExportModal({ open, onClose }: Props) {
   const [preview, setPreview] = useState('');
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
 
   // Build the export preview (with baked product snapshots) whenever the modal
   // is open and something that affects the output changes.
@@ -30,7 +31,22 @@ export function ExportModal({ open, onClose }: Props) {
     (async () => {
       const doc = exportJson();
       const ids = doc.data.callouts.flatMap((c) => c.productIds);
-      doc.data.products = await getProductSnapshots(ids);
+      try {
+        doc.data.products = await getProductSnapshots(ids, {
+          shopDomain,
+          storefrontApiKey,
+          apiVersion,
+        });
+        if (!cancelled) setSnapshotError(null);
+      } catch (err) {
+        // The map is still exportable; the widget falls back to fetching
+        // products live. Warn, but leave `products` empty and show the map.
+        if (!cancelled) {
+          setSnapshotError(
+            `Couldn't bake product snapshots: ${(err as Error).message}`,
+          );
+        }
+      }
       if (!cancelled) setPreview(JSON.stringify(doc, null, 2));
     })();
     return () => {
@@ -84,7 +100,8 @@ export function ExportModal({ open, onClose }: Props) {
         <div className="flex flex-col gap-3 p-4">
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-500">
-              Product snapshots are baked in from the current catalog.
+              Product snapshots are baked in from your connected store (or the
+              sample catalog if none).
             </p>
             <div className="flex gap-2">
               <button
@@ -112,6 +129,11 @@ export function ExportModal({ open, onClose }: Props) {
             spellCheck={false}
             className="h-72 w-full resize-none rounded-md border border-slate-200 bg-slate-50 p-2 font-mono text-xs text-slate-700"
           />
+          {snapshotError && (
+            <p className="flex items-center gap-1.5 text-xs text-amber-600">
+              <AlertCircle size={13} /> {snapshotError}
+            </p>
+          )}
           {copyError && (
             <p className="flex items-center gap-1.5 text-xs text-red-600">
               <AlertCircle size={13} /> {copyError}

@@ -22,6 +22,26 @@
 - Still commit/push only when the user asks; the review is a prerequisite to the
   commit, not a trigger to commit on its own.
 
+## Shopify Storefront token — "get access token"
+
+When the user says **"get access token"** (or asks to mint/generate a Shopify
+Storefront token), run:
+
+```bash
+./scripts/get-storefront-token.sh
+```
+
+It reads `SHOPIFY_*` from `.env` (git-ignored; see `.env.example`) and prints a
+**public** Storefront access token on stdout. Return that token to the user — it
+is a public token, safe to paste into the Configure modal's "Storefront API
+access token" field and to embed in the exported `map.json`.
+
+- Prefer running it in the background and reply with just the token.
+- If the script errors that `SHOPIFY_*` keys are missing, ask the user to add
+  them to `.env` — never guess or hard-code credentials.
+- Never print or commit `SHOPIFY_CLIENT_SECRET`. Each run mints a new token
+  (max 100 per shop), so reuse the printed one rather than re-running.
+
 ## Project
 
 Admin tool that places **callouts** (point or region) on a background image and

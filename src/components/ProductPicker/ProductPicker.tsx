@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, Check } from 'lucide-react';
 import { fetchProducts, formatPrice, type Product } from '../../lib/products';
+import { useEditorStore } from '../../store/editorStore';
 
 interface Props {
   selectedIds: string[];
@@ -8,14 +9,21 @@ interface Props {
 }
 
 export function ProductPicker({ selectedIds, onChange }: Props) {
+  const shopDomain = useEditorStore((s) => s.shopDomain);
+  const storefrontApiKey = useEditorStore((s) => s.storefrontApiKey);
+  const apiVersion = useEditorStore((s) => s.apiVersion);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
+  // Reload when the Shopify connection changes (live store vs. mock fallback).
   useEffect(() => {
     let alive = true;
-    fetchProducts()
+    setLoading(true);
+    setError(null);
+    fetchProducts({ shopDomain, storefrontApiKey, apiVersion })
       .then((p) => {
         if (alive) setProducts(p);
       })
@@ -28,7 +36,7 @@ export function ProductPicker({ selectedIds, onChange }: Props) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [shopDomain, storefrontApiKey, apiVersion]);
 
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
 

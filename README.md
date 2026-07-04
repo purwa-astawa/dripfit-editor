@@ -17,7 +17,27 @@ npm install
 npm run dev        # http://localhost:5173 (hot reload; --host --open)
 npm run build      # typecheck (tsc -b) + production build to dist/
 npm run preview    # serve the production build
+npm run check      # typecheck + ESLint (run this to verify changes)
 ```
+
+## Shopify products (live vs. mock)
+
+The Product Picker and export pull products from the **live Storefront API** when
+a shop domain + **public** Storefront token are set in **Configure**; otherwise
+they fall back to the bundled `public/mock-fashion-products.json` (so dev works
+with no credentials).
+
+Headless stores can paste a public Storefront token directly. For a
+**non-headless** custom / Dev Dashboard app, mint one from the app's client
+credentials:
+
+```bash
+cp .env.example .env        # then fill the SHOPIFY_* values (git-ignored)
+./scripts/get-storefront-token.sh   # prints a public Storefront token
+```
+
+Paste the printed token into **Configure → Storefront API access token**. The
+`SHOPIFY_CLIENT_SECRET` stays local in `.env` and is never bundled or exported.
 
 ## How it works
 
