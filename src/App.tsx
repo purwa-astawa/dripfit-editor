@@ -1,11 +1,21 @@
+import { lazy, Suspense } from 'react';
 import { ImagePlus, Loader2, AlertCircle } from 'lucide-react';
 import { useEditorStore } from './store/editorStore';
 import { Toolbar } from './components/Toolbar/Toolbar';
-import { Canvas } from './components/Canvas/Canvas';
 import { CalloutList } from './components/CalloutList/CalloutList';
 import { CalloutEditPanel } from './components/CalloutEditPanel/CalloutEditPanel';
-import { Tour } from './components/Tour/Tour';
 import { MobileWarning } from './components/MobileWarning/MobileWarning';
+
+// Code-split the heavy pieces out of the initial bundle:
+// - Canvas pulls in Konva/react-konva/use-image (the largest dependency) and is
+//   only needed once a background image is loaded.
+// - Tour pulls in react-joyride and is only used for onboarding.
+const Canvas = lazy(() =>
+  import('./components/Canvas/Canvas').then((m) => ({ default: m.Canvas })),
+);
+const Tour = lazy(() =>
+  import('./components/Tour/Tour').then((m) => ({ default: m.Tour })),
+);
 
 export default function App() {
   const image = useEditorStore((s) => s.image);
@@ -15,7 +25,9 @@ export default function App() {
   return (
     <div className="flex h-full flex-col bg-slate-100 text-slate-900">
       <MobileWarning />
-      <Tour />
+      <Suspense fallback={null}>
+        <Tour />
+      </Suspense>
       <Toolbar />
 
       <div className="flex min-h-0 flex-1">
@@ -23,7 +35,18 @@ export default function App() {
         <main className="min-w-0 flex-1 p-3">
           <div className="h-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-inner">
             {image ? (
-              <Canvas />
+              <Suspense
+                fallback={
+                  <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-slate-400">
+                    <Loader2 size={40} strokeWidth={1.5} className="animate-spin" />
+                    <p className="text-sm font-medium text-slate-500">
+                      Loading canvas…
+                    </p>
+                  </div>
+                }
+              >
+                <Canvas />
+              </Suspense>
             ) : imageStatus === 'loading' ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-slate-400">
                 <Loader2 size={40} strokeWidth={1.5} className="animate-spin" />
@@ -53,7 +76,8 @@ export default function App() {
                         No background image
                       </p>
                       <p className="text-sm">
-                        Paste a public image URL in the toolbar to start mapping.
+                        Open <strong>Configure</strong> in the toolbar to add a
+                        background image and start mapping.
                       </p>
                     </div>
                   </>

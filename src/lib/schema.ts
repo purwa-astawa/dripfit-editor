@@ -1,5 +1,16 @@
 // Canonical map.json schema — must match the Visualizer widget exactly.
-// All coordinates are ratios (0–1) of the image's natural width/height.
+// All callout coordinates are ratios (0–1) of the poster's natural width/height.
+//
+// Shape:
+//   {
+//     posterUrl, storefrontAPIKey, shopDomain, apiVersion,
+//     data: { mapId, image: { width, height }, callouts: [...], products: {...} }
+//   }
+// The storefront widget resolves products live via the Storefront API
+// (storefrontAPIKey + shopDomain + apiVersion) and falls back to the baked
+// `data.products` snapshot.
+
+export const DEFAULT_API_VERSION = '2025-01';
 
 export type ShapeType = 'circle' | 'region';
 
@@ -25,23 +36,86 @@ export interface ImageMeta {
   height: number;
 }
 
-export interface MapDocument {
-  mapId: string;
-  image: ImageMeta;
-  callouts: Callout[];
+/** Baked product snapshot used as the offline fallback in `data.products`. */
+export interface ProductSnapshot {
+  title: string;
+  handle?: string;
+  featuredImage?: string | null;
+  price?: { amount: string; currencyCode: string } | null;
 }
 
-/** Narrow, defensive validation used by loadFromJson. Throws on malformed input. */
+export interface MapData {
+  mapId: string;
+  image: { width: number; height: number };
+  callouts: Callout[];
+  products: Record<string, ProductSnapshot>;
+}
+
+export interface MapDocument {
+  posterUrl: string;
+  storefrontAPIKey: string;
+  shopDomain: string;
+  apiVersion: string;
+  data: MapData;
+}
+
+// --- parsing / validation --------------------------------------------------
+
+/**
+ * Defensive validation for loadFromJson. Accepts the current shape and migrates
+ * the legacy `{ mapId, image: { url, width, height }, callouts }` shape. Throws
+ * on malformed input.
+ */
 export function parseMapDocument(input: unknown): MapDocument {
   if (typeof input !== 'object' || input === null) {
     throw new Error('map.json must be an object');
   }
   const obj = input as Record<string, unknown>;
 
-  if (typeof obj.mapId !== 'string') {
-    throw new Error('map.json: "mapId" must be a string');
+  if (obj.data && typeof obj.data === 'object') {
+    return parseCurrentShape(obj);
+  }
+  if (Array.isArray(obj.callouts) && obj.image) {
+    return migrateLegacyShape(obj);
+  }
+  throw new Error(
+    'map.json: unrecognized shape (expected a "data" object, or legacy "image" + "callouts")',
+  );
+}
+
+function asString(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+function parseCurrentShape(obj: Record<string, unknown>): MapDocument {
+  const data = obj.data as Record<string, unknown>;
+  const image = data.image as Record<string, unknown> | undefined;
+  if (
+    !image ||
+    typeof image.width !== 'number' ||
+    typeof image.height !== 'number'
+  ) {
+    throw new Error('map.json: data.image must have numeric { width, height }');
+  }
+  if (!Array.isArray(data.callouts)) {
+    throw new Error('map.json: data.callouts must be an array');
   }
 
+  return {
+    posterUrl: asString(obj.posterUrl),
+    storefrontAPIKey: asString(obj.storefrontAPIKey),
+    shopDomain: asString(obj.shopDomain),
+    apiVersion: asString(obj.apiVersion) || DEFAULT_API_VERSION,
+    data: {
+      mapId: asString(data.mapId),
+      image: { width: image.width, height: image.height },
+      callouts: data.callouts.map((c, i) => parseCallout(c, i)),
+      products: parseProducts(data.products),
+    },
+  };
+}
+
+function migrateLegacyShape(obj: Record<string, unknown>): MapDocument {
   const image = obj.image as Record<string, unknown> | undefined;
   if (
     !image ||
@@ -49,24 +123,44 @@ export function parseMapDocument(input: unknown): MapDocument {
     typeof image.width !== 'number' ||
     typeof image.height !== 'number'
   ) {
-    throw new Error('map.json: "image" must have { url, width, height }');
+    throw new Error(
+      'map.json (legacy): "image" must have { url, width, height }',
+    );
   }
-
-  if (!Array.isArray(obj.callouts)) {
-    throw new Error('map.json: "callouts" must be an array');
-  }
-
-  const callouts = obj.callouts.map((c, i) => parseCallout(c, i));
-
+  const callouts = (obj.callouts as unknown[]).map((c, i) => parseCallout(c, i));
   return {
-    mapId: obj.mapId,
-    image: {
-      url: image.url,
-      width: image.width,
-      height: image.height,
+    posterUrl: image.url,
+    storefrontAPIKey: '',
+    shopDomain: '',
+    apiVersion: DEFAULT_API_VERSION,
+    data: {
+      mapId: asString(obj.mapId),
+      image: { width: image.width, height: image.height },
+      callouts,
+      products: {},
     },
-    callouts,
   };
+}
+
+function parseProducts(input: unknown): Record<string, ProductSnapshot> {
+  if (typeof input !== 'object' || input === null) return {};
+  const out: Record<string, ProductSnapshot> = {};
+  for (const [id, raw] of Object.entries(input as Record<string, unknown>)) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.title !== 'string') continue;
+    out[id] = {
+      title: p.title,
+      handle: typeof p.handle === 'string' ? p.handle : undefined,
+      featuredImage:
+        typeof p.featuredImage === 'string' ? p.featuredImage : null,
+      price:
+        p.price && typeof p.price === 'object'
+          ? (p.price as ProductSnapshot['price'])
+          : null,
+    };
+  }
+  return out;
 }
 
 function parseCallout(input: unknown, index: number): Callout {
@@ -88,12 +182,10 @@ function parseCallout(input: unknown, index: number): Callout {
     throw new Error(`map.json: callouts[${index}].productIds must be string[]`);
   }
 
-  const shape = parseShape(c.shape, index);
-
   return {
     id: c.id,
     label: c.label,
-    shape,
+    shape: parseShape(c.shape, index),
     productIds: c.productIds as string[],
   };
 }

@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import Joyride, { STATUS, type CallBackProps, type Step } from 'react-joyride';
 import { useEditorStore } from '../../store/editorStore';
 
-// Two onboarding phases, each remembered separately in localStorage:
-//   1. "intro"  — before an image is loaded, point at the URL input.
-//   2. "tools"  — once an image is loaded, point at the POI and Region tools.
+// Onboarding phases, each remembered separately in localStorage:
+//   1. "intro"     — before setup, point at the Configure button.
+//   2. "configure" — while the Configure modal is open, walk its fields.
+//   3. "tools"     — once an image is loaded, point at the POI and Region tools.
 const INTRO_KEY = 'dripfit-tour-intro-seen';
+const CONFIG_KEY = 'dripfit-tour-config-seen';
 const TOOLS_KEY = 'dripfit-tour-tools-seen';
 
 function markSeen(key: string) {
@@ -26,12 +28,47 @@ function hasSeen(key: string): boolean {
 
 const introSteps: Step[] = [
   {
-    target: '[data-tour="image-url"]',
+    target: '[data-tour="configure"]',
     disableBeacon: true,
     placement: 'bottom',
-    title: '👋 Start here',
+    title: '👋 Start here — Configure',
     content:
-      'Add a background image first. Paste a public image URL (Dropbox and Google Drive share links work) and click Load. Once it appears on the canvas you can start placing POI and region callouts.',
+      'Open Configure to get set up — load a background image, connect your Shopify store, or import an existing map.json.',
+  },
+];
+
+const configureSteps: Step[] = [
+  {
+    target: '[data-tour="cfg-image"]',
+    disableBeacon: true,
+    placement: 'bottom',
+    title: '1 · Background image',
+    content:
+      'Paste a public image URL here and press Enter (or click Load). Dropbox and Google Drive share links work — the file just needs to be publicly shared. This poster is what shoppers see behind the callouts.',
+  },
+  {
+    target: '[data-tour="cfg-domain"]',
+    disableBeacon: true,
+    placement: 'bottom',
+    title: '2 · Shop domain',
+    content:
+      'Your Shopify store domain, e.g. your-shop.myshopify.com. The storefront widget uses it to look up products live.',
+  },
+  {
+    target: '[data-tour="cfg-token"]',
+    disableBeacon: true,
+    placement: 'bottom',
+    title: '3 · Storefront API access token',
+    content:
+      'A public Storefront API access token. It’s safe to embed in the exported map.json and lets the widget fetch product details (title, price, image).',
+  },
+  {
+    target: '[data-tour="cfg-import"]',
+    disableBeacon: true,
+    placement: 'top',
+    title: '4 · Import a map.json',
+    content:
+      'Already have a map? Paste its JSON here (or use “From file”) to keep editing an existing map instead of starting fresh.',
   },
 ];
 
@@ -54,43 +91,71 @@ const toolsSteps: Step[] = [
   },
 ];
 
-type Phase = 'intro' | 'tools' | null;
+type Phase = 'intro' | 'configure' | 'tools' | null;
 
 /**
- * Onboarding tour. Shows the "intro" step until an image is loaded, then—once a
- * background image is in place—runs the "tools" tour highlighting the POI and
- * Region tools. Each phase is shown once and remembered via localStorage.
+ * Onboarding tour. Intro points at Configure; opening Configure walks its fields;
+ * once an image is loaded (and the modal closed), the tools tour runs. Each phase
+ * shows once and is remembered via localStorage.
  */
 export function Tour() {
   const image = useEditorStore((s) => s.image);
+  const configureOpen = useEditorStore((s) => s.configureOpen);
   const [phase, setPhase] = useState<Phase>(null);
 
-  // On mount, start the intro phase if no image is loaded yet.
+  // On mount, start the intro if nothing is set up yet.
   useEffect(() => {
-    if (!image && !hasSeen(INTRO_KEY)) setPhase('intro');
+    if (!hasSeen(INTRO_KEY) && !image && !configureOpen) setPhase('intro');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When an image loads: the intro is fulfilled — close it and, if the tools
-  // tour hasn't been shown, start it (after a beat so the now-enabled tool
-  // buttons have rendered as valid targets).
+  // Opening/closing Configure drives the configure phase.
   useEffect(() => {
-    if (!image) return;
+    if (configureOpen) {
+      markSeen(INTRO_KEY); // opening it fulfils the intro
+      if (!hasSeen(CONFIG_KEY)) {
+        setPhase(null); // clear intro first
+        const t = setTimeout(() => setPhase('configure'), 250);
+        return () => clearTimeout(t);
+      }
+      setPhase((p) => (p === 'intro' ? null : p));
+    } else {
+      // Closing ends the configure walkthrough (and remembers it).
+      setPhase((p) => {
+        if (p === 'configure') {
+          markSeen(CONFIG_KEY);
+          return null;
+        }
+        return p;
+      });
+    }
+  }, [configureOpen]);
+
+  // Once an image is loaded and the modal is closed, run the tools tour.
+  useEffect(() => {
+    if (!image || configureOpen) return;
     markSeen(INTRO_KEY);
-    setPhase(null);
     if (!hasSeen(TOOLS_KEY)) {
       const t = setTimeout(() => setPhase('tools'), 350);
       return () => clearTimeout(t);
     }
-  }, [image]);
+  }, [image, configureOpen]);
 
   const steps =
-    phase === 'intro' ? introSteps : phase === 'tools' ? toolsSteps : [];
+    phase === 'intro'
+      ? introSteps
+      : phase === 'configure'
+        ? configureSteps
+        : phase === 'tools'
+          ? toolsSteps
+          : [];
 
   const handleCallback = (data: CallBackProps) => {
     const done: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
     if (done.includes(data.status)) {
-      if (phase) markSeen(phase === 'intro' ? INTRO_KEY : TOOLS_KEY);
+      if (phase === 'intro') markSeen(INTRO_KEY);
+      else if (phase === 'configure') markSeen(CONFIG_KEY);
+      else if (phase === 'tools') markSeen(TOOLS_KEY);
       setPhase(null);
     }
   };
@@ -111,7 +176,8 @@ export function Tour() {
           textColor: '#1e293b',
           backgroundColor: '#ffffff',
           arrowColor: '#ffffff',
-          zIndex: 10000,
+          // Above the modals (z-[12000]) so field tooltips sit on top.
+          zIndex: 13000,
         },
       }}
     />

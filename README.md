@@ -21,17 +21,23 @@ npm run preview    # serve the production build
 
 ## How it works
 
-1. **Load a background image** by pasting a public image URL in the toolbar and
-   pressing **Load** (or Enter). The store tracks `imageStatus`
-   (`idle` / `loading` / `error`) while the image resolves, and its natural
-   `width`/`height` are captured for ratio conversion. (Local file upload is
-   temporarily hidden — the handler is kept commented in `Toolbar.tsx`.)
+1. **Configure** (toolbar button) is the single setup panel. It groups:
+   - **Background image** — paste a public image URL and press **Load** (or Enter).
+     The store tracks `imageStatus` (`idle` / `loading` / `error`) while it resolves,
+     and its natural `width`/`height` are captured for ratio conversion. (Local file
+     upload is temporarily hidden — the handler is kept commented in `Toolbar.tsx`.)
+     Common **share links are auto-rewritten** to their direct-image form
+     (`src/lib/imageUrl.ts`), since share pages serve HTML, not image bytes:
+     Dropbox `…?dl=0` → `dl.dropboxusercontent.com/…`; Google Drive
+     `…/file/d/{id}/view` → `…/thumbnail?id={id}&sz=w2048`.
+   - **Storefront connection** — shop domain, Storefront token, API version
+     (persisted to `sessionStorage`).
+   - **Import map.json** — paste the JSON or pick a file (also accepts the legacy
+     shape).
 
-   Common **share links are auto-rewritten** to their direct-image form
-   (`src/lib/imageUrl.ts`), since share pages serve HTML, not image bytes:
-   - Dropbox `www.dropbox.com/…?dl=0` → `dl.dropboxusercontent.com/…`
-   - Google Drive `drive.google.com/file/d/{id}/view` →
-     `drive.google.com/thumbnail?id={id}&sz=w2048`
+   Pressing **Enter** in the image URL field is a quick "load & go" — it loads and
+   closes Configure. Clicking **Load** loads but keeps the modal open so you can keep
+   configuring.
 2. **POI** tool — click on the image to drop a circular callout. Drag it to move;
    drag the white handle to resize its radius.
 3. **Region** tool — click to add points (a live dashed preview follows the cursor),
@@ -39,15 +45,19 @@ npm run preview    # serve the production build
    Select it to drag individual vertices, or drag the body to move the whole region.
 4. **Select** a callout to edit its label and attach products (multi-select, backed
    by `public/mock-fashion-products.json` in local dev).
-5. **Export JSON** downloads `map.json`; **Import** loads one back (round-trips).
+5. **Export** (toolbar button) previews the `map.json` and lets you **Copy** it to
+   the clipboard or **Download** it.
 
 ### Onboarding & responsiveness
 
-- A **guided tour** (`react-joyride`, `src/components/Tour/Tour.tsx`) runs in two
-  phases: first it points a new user at the image-URL input, then—once an image is
-  loaded—it highlights the **POI** and **Region** tools. Each phase shows once and
-  is remembered in `localStorage` (`dripfit-tour-intro-seen`,
-  `dripfit-tour-tools-seen`). Clear those keys to replay it.
+- A **guided tour** (`react-joyride`, `src/components/Tour/Tour.tsx`) runs in three
+  phases: **intro** points at the **Configure** button; opening Configure runs a
+  **configure** walkthrough of its fields (image URL, shop domain, Storefront token,
+  import); and once an image is loaded (modal closed) the **tools** phase highlights
+  the **POI** and **Region** tools. The tour reads `configureOpen` from the store to
+  know when the modal is open, and its tooltips sit at `z-index: 13000` (above the
+  `z-[12000]` modals). Each phase shows once and is remembered in `localStorage`
+  (`dripfit-tour-intro-seen`, `dripfit-tour-config-seen`, `dripfit-tour-tools-seen`).
 - On **phone-sized screens** a full-screen advisory
   (`src/components/MobileWarning/MobileWarning.tsx`) recommends a tablet/laptop/desktop
   (with a "Continue anyway" escape). A device is treated as a phone when its shorter
@@ -72,6 +82,8 @@ src/
     CalloutList/        # sidebar list of callouts
     CalloutEditPanel/   # label + shape summary + product picker for the selection
     ProductPicker/      # searchable multi-select against the catalog
+    ConfigureModal/     # setup group: load image + Shopify settings + import
+    ExportModal/        # export the map.json (copy / download, baked snapshot)
     Tour/               # two-phase react-joyride onboarding tour
     MobileWarning/      # full-screen "use a bigger screen" advisory on phones
   store/editorStore.ts  # single Zustand store (see spec for shape)
@@ -83,17 +95,46 @@ src/
     products.ts         # catalog loader (mock now, Storefront API later)
 ```
 
-## Data model
+## Data model (`map.json`)
 
-`map.json` holds `{ mapId, image: { url, width, height }, callouts: [...] }`. A callout
-is `{ id, label, shape, productIds }` where `shape` is one of:
+```jsonc
+{
+  "posterUrl": "https://…/poster.png",   // the background image
+  "storefrontAPIKey": "…",               // public Storefront access token
+  "shopDomain": "your-shop.myshopify.com",
+  "apiVersion": "2025-01",
+  "data": {
+    "mapId": "uuid",
+    "image": { "width": 2048, "height": 2048 },  // natural dims (url is posterUrl)
+    "callouts": [
+      { "id": "…", "label": "…",
+        "shape": { "type": "region", "points": [{ "x": 0, "y": 0 }] },
+        "productIds": ["gid://shopify/Product/1001"] }
+    ],
+    "products": {                          // baked snapshot (offline fallback)
+      "gid://shopify/Product/1001": {
+        "title": "…", "handle": "…",
+        "featuredImage": "https://…",
+        "price": { "amount": "68.00", "currencyCode": "USD" }
+      }
+    }
+  }
+}
+```
 
-- `{ type: 'circle', cx, cy, r }`
-- `{ type: 'region', points: [{ x, y }, …] }`  (≥ 3 points)
+A callout's `shape` is `{ type: 'circle', cx, cy, r }` or
+`{ type: 'region', points: [{x,y},…] }` (≥ 3 points). All coordinates are ratio
+units (0–1) of the poster's natural size.
 
-All coordinates are ratio units (0–1). **Note:** this schema uses the DripFit
-vocabulary (`callouts`, `type: 'region'`); the Visualizer widget must read these keys
-or it won't parse the exported `map.json`.
+- **Product resolution is hybrid:** the storefront Visualizer resolves products
+  **live** via the Storefront API (`storefrontAPIKey` + `shopDomain` + `apiVersion`)
+  and falls back to the baked `data.products` snapshot. The Storefront token is a
+  *public* access token, so embedding it is expected. During authoring the editor's
+  product picker still uses `public/mock-fashion-products.json` (real Storefront
+  wiring is Phase 2), and `data.products` is baked from that source at export.
+- **Import accepts the legacy shape** (`{ mapId, image: { url, … }, callouts }`) and
+  migrates it (`image.url` → `posterUrl`), so older exports still load.
+- **Vocabulary:** `callouts`, `type: 'region'` — the Visualizer must read these keys.
 
 ## Caveats & notes
 
