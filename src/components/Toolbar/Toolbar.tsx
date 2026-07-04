@@ -7,6 +7,8 @@ import {
   Download,
   Check,
   X,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { useEditorStore, type Tool } from '../../store/editorStore';
 import { ConfigureModal } from '../ConfigureModal/ConfigureModal';
@@ -27,6 +29,8 @@ export function Toolbar() {
   const clearDraftRegion = useEditorStore((s) => s.clearDraftRegion);
   const configureOpen = useEditorStore((s) => s.configureOpen);
   const setConfigureOpen = useEditorStore((s) => s.setConfigureOpen);
+  const beaconPreview = useEditorStore((s) => s.beaconPreview);
+  const setBeaconPreview = useEditorStore((s) => s.setBeaconPreview);
 
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -62,6 +66,26 @@ export function Toolbar() {
           );
         })}
       </div>
+
+      {/* Preview beacons: hides the editing shapes and shows only the beacons,
+          as the Visualizer would render them. */}
+      <button
+        type="button"
+        disabled={!image}
+        onClick={() => setBeaconPreview(!beaconPreview)}
+        aria-pressed={beaconPreview}
+        title="Preview beacons (hides editing shapes)"
+        className={[
+          'flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition',
+          'disabled:cursor-not-allowed disabled:opacity-40',
+          beaconPreview
+            ? 'border-blue-600 bg-blue-600 text-white'
+            : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
+        ].join(' ')}
+      >
+        {beaconPreview ? <Eye size={15} /> : <EyeOff size={15} />}
+        Preview
+      </button>
 
       {inRegion && (
         <div className="flex items-center gap-1.5">

@@ -11,3 +11,14 @@ body,
 body {
   margin: 0;
 }
+
+/* Gentle breathing pulse for the region Beacon indicator. */
+@keyframes beacon-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}

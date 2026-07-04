@@ -10,6 +10,8 @@
 // (storefrontAPIKey + shopDomain + apiVersion) and falls back to the baked
 // `data.products` snapshot.
 
+import { normalizeHexColor } from './color';
+
 export const DEFAULT_API_VERSION = '2025-01';
 
 export type ShapeType = 'circle' | 'region';
@@ -21,8 +23,12 @@ export interface Point {
 
 export type CircleShape = { type: 'circle'; cx: number; cy: number; r: number };
 
-/** Where the visualiser shows the region's beacon (the animated indicator),
- *  relative to the region's bounding box. */
+export type RegionShape = { type: 'region'; points: Point[] };
+export type Shape = CircleShape | RegionShape;
+
+/** Where the visualiser shows a region's beacon (the animated indicator),
+ *  relative to the region's bounding box. Circles always use 'center' (the
+ *  beacon sits at the circle centre). */
 export const BEACON_POSITIONS = [
   'topleft',
   'top',
@@ -37,22 +43,32 @@ export const BEACON_POSITIONS = [
 export type BeaconPosition = (typeof BEACON_POSITIONS)[number];
 export const DEFAULT_BEACON: BeaconPosition = 'center';
 
-/** The beacon: an anchor name plus its resolved (ratio) coordinate on the
- *  region's bounding box, so the visualiser can place the indicator directly. */
-export interface BeaconAnchor {
+/** Beacon indicator size — a named step, mapped to pixels via BEACON_SIZE_PX. */
+export const BEACON_SIZES = ['standard', 'large', 'larger'] as const;
+export type BeaconSize = (typeof BEACON_SIZES)[number];
+export const DEFAULT_BEACON_SIZE: BeaconSize = 'standard';
+export const BEACON_SIZE_PX: Record<BeaconSize, number> = {
+  standard: 32,
+  large: 48,
+  larger: 64,
+};
+
+/** Default beacon glow color (gray). */
+export const DEFAULT_BEACON_COLOR = '#9ca3af';
+
+/** The beacon: an animated indicator every callout carries. `position` anchors
+ *  it on a region's bounding box (always 'center' for circles); `x,y` is its
+ *  resolved ratio coordinate so the visualiser can place it directly. `size` and
+ *  `color` control its appearance. */
+export interface Beacon {
   position: BeaconPosition;
   x: number;
   y: number;
+  size: BeaconSize;
+  color: string;
 }
 
-export type RegionShape = {
-  type: 'region';
-  points: Point[];
-  beacon: BeaconAnchor;
-};
-export type Shape = CircleShape | RegionShape;
-
-/** Resolve a beacon anchor's (ratio) coordinate from the region's bounding box. */
+/** Resolve a beacon anchor's (ratio) coordinate from a region's bounding box. */
 export function beaconPoint(
   points: Point[],
   position: BeaconPosition,
@@ -85,13 +101,43 @@ export function beaconPoint(
   return { x, y };
 }
 
-/** Build a BeaconAnchor (position + resolved coordinate) for a region. */
-export function makeBeacon(
-  points: Point[],
+/** Resolve a beacon's (ratio) coordinate for any shape: the region's bbox anchor,
+ *  or the circle's centre (where `position` is ignored). */
+export function resolveBeaconPoint(
+  shape: Shape,
   position: BeaconPosition,
-): BeaconAnchor {
-  const { x, y } = beaconPoint(points, position);
-  return { position, x, y };
+): { x: number; y: number } {
+  if (shape.type === 'circle') return { x: shape.cx, y: shape.cy };
+  return beaconPoint(shape.points, position);
+}
+
+export interface BeaconOptions {
+  position?: BeaconPosition;
+  size?: BeaconSize;
+  color?: string;
+}
+
+/** Build a Beacon for a shape, resolving its coordinate. Circles are forced to
+ *  the 'center' anchor. */
+export function makeBeacon(shape: Shape, opts: BeaconOptions = {}): Beacon {
+  const position =
+    shape.type === 'circle' ? DEFAULT_BEACON : opts.position ?? DEFAULT_BEACON;
+  const { x, y } = resolveBeaconPoint(shape, position);
+  return {
+    position,
+    x,
+    y,
+    size: opts.size ?? DEFAULT_BEACON_SIZE,
+    color: opts.color ?? DEFAULT_BEACON_COLOR,
+  };
+}
+
+/** Recompute a beacon's coordinate after its shape or position changed, keeping
+ *  size/color. Circles are pinned to 'center'. */
+export function syncBeacon(shape: Shape, beacon: Beacon): Beacon {
+  const position = shape.type === 'circle' ? DEFAULT_BEACON : beacon.position;
+  const { x, y } = resolveBeaconPoint(shape, position);
+  return { ...beacon, position, x, y };
 }
 
 /** A product attached to a callout. `image` optionally overrides which image to
@@ -106,6 +152,7 @@ export interface Callout {
   id: string;
   label: string;
   shape: Shape;
+  beacon: Beacon;
   products: CalloutProduct[];
 }
 
@@ -163,6 +210,20 @@ export function parseMapDocument(input: unknown): MapDocument {
 
 function asString(v: unknown): string {
   return typeof v === 'string' ? v : '';
+}
+
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return typeof v === 'object' && v !== null
+    ? (v as Record<string, unknown>)
+    : null;
+}
+
+function isBeaconPosition(v: unknown): v is BeaconPosition {
+  return (BEACON_POSITIONS as readonly string[]).includes(v as string);
+}
+
+function isBeaconSize(v: unknown): v is BeaconSize {
+  return (BEACON_SIZES as readonly string[]).includes(v as string);
 }
 
 function parseCurrentShape(obj: Record<string, unknown>): MapDocument {
@@ -250,12 +311,43 @@ function parseCallout(input: unknown, index: number): Callout {
     throw new Error(`map.json: callouts[${index}].label must be a string`);
   }
 
+  const shape = parseShape(c.shape, index);
   return {
     id: c.id,
     label: c.label,
-    shape: parseShape(c.shape, index),
+    shape,
+    beacon: parseBeacon(c, shape),
     products: parseCalloutProducts(c, index),
   };
+}
+
+/** Parse a callout's beacon. Accepts the current top-level `beacon` object and
+ *  migrates the legacy region `shape.beacon` (which may be a bare position
+ *  string or `{ position }`). The coordinate is always recomputed from the shape
+ *  so it stays consistent with the geometry; circles are pinned to 'center'. */
+function parseBeacon(c: Record<string, unknown>, shape: Shape): Beacon {
+  const raw = c.beacon ?? asRecord(c.shape)?.beacon;
+
+  let position: BeaconPosition = DEFAULT_BEACON;
+  let size: BeaconSize = DEFAULT_BEACON_SIZE;
+  let color = DEFAULT_BEACON_COLOR;
+
+  if (typeof raw === 'string') {
+    if (isBeaconPosition(raw)) position = raw;
+  } else {
+    const r = asRecord(raw);
+    if (r) {
+      if (isBeaconPosition(r.position)) position = r.position;
+      if (isBeaconSize(r.size)) size = r.size;
+      if (typeof r.color === 'string') {
+        // Keep color to a valid hex so the color picker can display it and the
+        // canvas gradient can render it; fall back to the default otherwise.
+        const hex = normalizeHexColor(r.color);
+        if (hex) color = hex;
+      }
+    }
+  }
+  return makeBeacon(shape, { position, size, color });
 }
 
 /** Accept the current `products: [{ id, image? }]` shape and migrate the legacy
@@ -319,22 +411,7 @@ function parseShape(input: unknown, index: number): Shape {
       }
       return { x: pt.x, y: pt.y };
     });
-    // Accept beacon as a string ("topleft") or an object ({ position, x, y });
-    // the coordinate is always recomputed from the parsed points so it stays
-    // consistent with the region geometry.
-    const raw = s.beacon;
-    const posCandidate =
-      typeof raw === 'string'
-        ? raw
-        : raw && typeof raw === 'object' && 'position' in raw
-          ? (raw as Record<string, unknown>).position
-          : undefined;
-    const position = (BEACON_POSITIONS as readonly string[]).includes(
-      posCandidate as string,
-    )
-      ? (posCandidate as BeaconPosition)
-      : DEFAULT_BEACON;
-    return { type: 'region', points, beacon: makeBeacon(points, position) };
+    return { type: 'region', points };
   }
 
   throw new Error(

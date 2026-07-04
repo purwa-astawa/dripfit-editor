@@ -9,8 +9,10 @@ import {
   pixelToRatio,
   ratioToPixel,
 } from '../../lib/geometry';
+import { BEACON_SIZE_PX } from '../../lib/schema';
 import { PointCallout } from './PointCallout';
 import { RegionCallout } from './RegionCallout';
+import { KonvaBeacon } from './KonvaBeacon';
 
 export function Canvas() {
   const image = useEditorStore((s) => s.image);
@@ -18,6 +20,7 @@ export function Canvas() {
   const tool = useEditorStore((s) => s.tool);
   const selectedCalloutId = useEditorStore((s) => s.selectedCalloutId);
   const draftRegionPoints = useEditorStore((s) => s.draftRegionPoints);
+  const beaconPreview = useEditorStore((s) => s.beaconPreview);
 
   const addPointCallout = useEditorStore((s) => s.addPointCallout);
   const addRegionPoint = useEditorStore((s) => s.addRegionPoint);
@@ -148,32 +151,54 @@ export function Canvas() {
               opacity={0}
             />
 
-            {callouts.map((c) =>
-              c.shape.type === 'circle' ? (
-                <PointCallout
-                  key={c.id}
-                  id={c.id}
-                  label={c.label}
-                  shape={c.shape}
-                  box={box}
-                  selected={c.id === selectedCalloutId && tool === 'select'}
-                  onSelect={selectCallout}
-                  onChange={updateCalloutShape}
-                />
-              ) : (
-                <RegionCallout
-                  key={c.id}
-                  id={c.id}
-                  label={c.label}
-                  shape={c.shape}
-                  box={box}
-                  selected={c.id === selectedCalloutId && tool === 'select'}
-                  draggableWhole={c.id === selectedCalloutId && tool === 'select'}
-                  onSelect={selectCallout}
-                  onChange={updateCalloutShape}
-                />
-              ),
-            )}
+            {/* Editing shapes — hidden while previewing beacons so the canvas
+                shows only what the Visualizer would render. */}
+            {!beaconPreview &&
+              callouts.map((c) =>
+                c.shape.type === 'circle' ? (
+                  <PointCallout
+                    key={c.id}
+                    id={c.id}
+                    label={c.label}
+                    shape={c.shape}
+                    box={box}
+                    selected={c.id === selectedCalloutId && tool === 'select'}
+                    onSelect={selectCallout}
+                    onChange={updateCalloutShape}
+                  />
+                ) : (
+                  <RegionCallout
+                    key={c.id}
+                    id={c.id}
+                    label={c.label}
+                    shape={c.shape}
+                    box={box}
+                    selected={c.id === selectedCalloutId && tool === 'select'}
+                    draggableWhole={
+                      c.id === selectedCalloutId && tool === 'select'
+                    }
+                    onSelect={selectCallout}
+                    onChange={updateCalloutShape}
+                  />
+                ),
+              )}
+
+            {/* Beacon indicators (the animated indicator the Visualizer shows),
+                at each callout's resolved beacon coordinate. Shown only while
+                previewing (editing shapes are hidden then). */}
+            {beaconPreview &&
+              callouts.map((c) => {
+                const p = ratioToPixel(c.beacon, box);
+                return (
+                  <KonvaBeacon
+                    key={`beacon-${c.id}`}
+                    x={p.x}
+                    y={p.y}
+                    size={BEACON_SIZE_PX[c.beacon.size]}
+                    color={c.beacon.color}
+                  />
+                );
+              })}
 
             {/* In-progress region preview. */}
             {tool === 'draw-region' && draftPixels.length > 0 && (

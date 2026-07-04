@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type {
+  Beacon,
   Callout,
   CalloutProduct,
   ImageMeta,
@@ -9,8 +10,8 @@ import type {
 } from '../lib/schema';
 import {
   DEFAULT_API_VERSION,
-  DEFAULT_BEACON,
   makeBeacon,
+  syncBeacon,
   parseMapDocument,
 } from '../lib/schema';
 import { normalizeImageUrl } from '../lib/imageUrl';
@@ -49,9 +50,13 @@ export interface EditorState {
 
   // UI: whether the Configure modal is open (shared so the tour can react).
   configureOpen: boolean;
+  // UI: preview beacons on the canvas. Off by default so they don't clutter
+  // editing; toggled from the toolbar.
+  beaconPreview: boolean;
 
   setImage: (url: string, width: number, height: number) => void;
   setConfigureOpen: (open: boolean) => void;
+  setBeaconPreview: (on: boolean) => void;
   setShopifyConfig: (patch: Partial<ShopifyConfig>) => void;
   /** Load a public image URL: sets imageStatus 'loading', then resolves the
    *  image's natural dimensions and stores it (or sets 'error'). */
@@ -63,6 +68,12 @@ export interface EditorState {
   commitDraftRegion: (label?: string) => string | null;
   updateCallout: (id: string, patch: Partial<Omit<Callout, 'id'>>) => void;
   updateCalloutShape: (id: string, shape: Shape) => void;
+  /** Update a callout's beacon appearance/position. Coordinate is resynced from
+   *  the shape (a position change moves it; size/color leave it in place). */
+  updateCalloutBeacon: (
+    id: string,
+    patch: Partial<Pick<Beacon, 'position' | 'size' | 'color'>>,
+  ) => void;
   setCalloutProducts: (id: string, products: CalloutProduct[]) => void;
   selectCallout: (id: string | null) => void;
   deleteCallout: (id: string) => void;
@@ -129,6 +140,7 @@ export const useEditorStore = create<EditorState>()(
       tool: 'select',
       draftRegionPoints: [],
       configureOpen: false,
+      beaconPreview: false,
       ...loadShopifyConfig(),
 
       setImage: (url, width, height) =>
@@ -140,6 +152,9 @@ export const useEditorStore = create<EditorState>()(
 
       setConfigureOpen: (open) =>
         set({ configureOpen: open }, false, 'setConfigureOpen'),
+
+      setBeaconPreview: (on) =>
+        set({ beaconPreview: on }, false, 'setBeaconPreview'),
 
       setShopifyConfig: (patch) =>
         set(
@@ -207,10 +222,12 @@ export const useEditorStore = create<EditorState>()(
 
       addPointCallout: (cx, cy) => {
         const id = uuid();
+        const shape: Shape = { type: 'circle', cx, cy, r: DEFAULT_POINT_RADIUS };
         const callout: Callout = {
           id,
           label: `Callout ${get().callouts.length + 1}`,
-          shape: { type: 'circle', cx, cy, r: DEFAULT_POINT_RADIUS },
+          shape,
+          beacon: makeBeacon(shape),
           products: [],
         };
         set(
@@ -240,14 +257,15 @@ export const useEditorStore = create<EditorState>()(
         const points = get().draftRegionPoints;
         if (points.length < 3) return null; // guard: regions need ≥3 points
         const id = uuid();
+        const shape: Shape = {
+          type: 'region',
+          points: points.map((p) => ({ ...p })),
+        };
         const callout: Callout = {
           id,
           label: label?.trim() || `Region ${get().callouts.length + 1}`,
-          shape: {
-            type: 'region',
-            points: points.map((p) => ({ ...p })),
-            beacon: makeBeacon(points, DEFAULT_BEACON),
-          },
+          shape,
+          beacon: makeBeacon(shape),
           products: [],
         };
         set(
@@ -274,23 +292,33 @@ export const useEditorStore = create<EditorState>()(
           'updateCallout',
         ),
 
-      updateCalloutShape: (id, shape) => {
-        // Keep the region beacon's coordinate in sync with its points (the shape
-        // may have been dragged/reshaped, moving the bounding box).
-        const next =
-          shape.type === 'region'
-            ? { ...shape, beacon: makeBeacon(shape.points, shape.beacon.position) }
-            : shape;
+      updateCalloutShape: (id, shape) =>
         set(
           (state) => ({
             callouts: state.callouts.map((c) =>
-              c.id === id ? { ...c, shape: next } : c,
+              // Keep the beacon's coordinate in sync with the shape (dragging or
+              // reshaping moves the bounding box / circle centre).
+              c.id === id
+                ? { ...c, shape, beacon: syncBeacon(shape, c.beacon) }
+                : c,
             ),
           }),
           false,
           'updateCalloutShape',
-        );
-      },
+        ),
+
+      updateCalloutBeacon: (id, patch) =>
+        set(
+          (state) => ({
+            callouts: state.callouts.map((c) =>
+              c.id === id
+                ? { ...c, beacon: syncBeacon(c.shape, { ...c.beacon, ...patch }) }
+                : c,
+            ),
+          }),
+          false,
+          'updateCalloutBeacon',
+        ),
 
       setCalloutProducts: (id, products) =>
         set(
@@ -340,8 +368,8 @@ export const useEditorStore = create<EditorState>()(
                   : {
                       type: 'region' as const,
                       points: c.shape.points.map((p) => ({ ...p })),
-                      beacon: { ...c.shape.beacon },
                     },
+              beacon: { ...c.beacon },
               products: c.products.map((p) => ({ ...p })),
             })),
             // Baked snapshot is filled in by the UI export step (async, from the

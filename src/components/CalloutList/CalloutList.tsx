@@ -49,6 +49,7 @@ export function CalloutList() {
                 >
                   <Icon
                     size={15}
+                    fill={active ? 'currentColor' : 'none'}
                     className={active ? 'text-blue-600' : 'text-slate-400'}
                   />
                   <span className="flex-1 truncate">{c.label}</span>
