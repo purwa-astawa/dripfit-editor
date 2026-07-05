@@ -13,6 +13,7 @@ import {
 import { useEditorStore, type Tool } from '../../store/editorStore';
 import { ConfigureModal } from '../ConfigureModal/ConfigureModal';
 import { ExportModal } from '../ExportModal/ExportModal';
+import { PreviewCardSettings } from './PreviewCardSettings';
 
 const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2 }[] = [
   { id: 'select', label: 'Select', icon: MousePointer2 },
@@ -66,6 +67,9 @@ export function Toolbar() {
           );
         })}
       </div>
+
+      {/* Global preview settings for the selected-product card. */}
+      <PreviewCardSettings />
 
       {/* Preview beacons: hides the editing shapes and shows only the beacons,
           as the Visualizer would render them. */}

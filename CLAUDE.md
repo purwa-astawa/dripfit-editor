@@ -67,6 +67,10 @@ exports a `map.json` for the Visualizer widget. Coordinates are stored as ratios
 
 ## Vocabulary (keep consistent)
 
+- **dripfit-config** — the JSON file the editor exports and the Visualizer
+  consumes: background image (poster), Shopify API key, callouts, and related
+  data. This is the `map.json` document defined by `src/lib/schema.ts`
+  (`MapDocument`); "dripfit-config" and "map.json" refer to the same file.
 - **callout** — a placed annotation (was previously "marker").
 - **region** — a polygon-shaped callout (was previously "polygon"); the shape
   `type` value is `"region"`.

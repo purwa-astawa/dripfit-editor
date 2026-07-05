@@ -18,6 +18,13 @@ import { normalizeImageUrl } from '../lib/imageUrl';
 
 export type Tool = 'select' | 'place-point' | 'draw-region';
 
+/** How a selected product's card (replacing the beacon in preview) shows its
+ *  details: always visible, or hidden behind an info button. Applied globally. */
+export type ProductCardMode = 'details' | 'info';
+
+/** The selected-product card's image shape in preview. Applied globally. */
+export type ProductCardShape = 'square' | 'circle';
+
 /** Lifecycle of loading a background image from a URL. */
 export type ImageStatus = 'idle' | 'loading' | 'error';
 
@@ -53,10 +60,15 @@ export interface EditorState {
   // UI: preview beacons on the canvas. Off by default so they don't clutter
   // editing; toggled from the toolbar.
   beaconPreview: boolean;
+  // UI (global): how a selected product's card displays in preview.
+  productCardMode: ProductCardMode;
+  productCardShape: ProductCardShape;
 
   setImage: (url: string, width: number, height: number) => void;
   setConfigureOpen: (open: boolean) => void;
   setBeaconPreview: (on: boolean) => void;
+  setProductCardMode: (mode: ProductCardMode) => void;
+  setProductCardShape: (shape: ProductCardShape) => void;
   setShopifyConfig: (patch: Partial<ShopifyConfig>) => void;
   /** Load a public image URL: sets imageStatus 'loading', then resolves the
    *  image's natural dimensions and stores it (or sets 'error'). */
@@ -141,6 +153,8 @@ export const useEditorStore = create<EditorState>()(
       draftRegionPoints: [],
       configureOpen: false,
       beaconPreview: false,
+      productCardMode: 'info',
+      productCardShape: 'square',
       ...loadShopifyConfig(),
 
       setImage: (url, width, height) =>
@@ -155,6 +169,12 @@ export const useEditorStore = create<EditorState>()(
 
       setBeaconPreview: (on) =>
         set({ beaconPreview: on }, false, 'setBeaconPreview'),
+
+      setProductCardMode: (mode) =>
+        set({ productCardMode: mode }, false, 'setProductCardMode'),
+
+      setProductCardShape: (shape) =>
+        set({ productCardShape: shape }, false, 'setProductCardShape'),
 
       setShopifyConfig: (patch) =>
         set(

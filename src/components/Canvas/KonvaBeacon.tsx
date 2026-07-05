@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Circle } from 'react-konva';
 import Konva from 'konva';
+import type { KonvaEventObject } from 'konva/lib/Node';
 import { BEACON_RING_STOPS, toRgbTriplet } from '../../lib/color';
 
 // Konva-native version of the region Beacon indicator: a single Circle whose
@@ -18,6 +19,9 @@ export interface KonvaBeaconProps {
   color?: string;
   /** Gentle breathing pulse. Default true. */
   pulse?: boolean;
+  /** When set, the beacon is clickable (opens the deck) and shows a pointer
+   *  cursor on hover — the beacon behaves like the callout's hit area. */
+  onActivate?: () => void;
 }
 
 const DEFAULT_SIZE = 32;
@@ -31,10 +35,16 @@ export function KonvaBeacon({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
   pulse = true,
+  onActivate,
 }: KonvaBeaconProps) {
   const ref = useRef<Konva.Circle>(null);
   const radius = size / 2;
   const rgb = toRgbTriplet(color);
+
+  const setCursor = (e: KonvaEventObject<MouseEvent>, cursor: string) => {
+    const stage = e.target.getStage();
+    if (stage) stage.container().style.cursor = cursor;
+  };
 
   // Konva color stops: flat [offset, cssColor, offset, cssColor, …]. Duplicated
   // offsets give the crisp ring edges, same as the DOM Beacon's gradient.
@@ -68,7 +78,11 @@ export function KonvaBeacon({
       x={x}
       y={y}
       radius={radius}
-      listening={false}
+      listening={!!onActivate}
+      onClick={onActivate}
+      onTap={onActivate}
+      onMouseEnter={(e) => setCursor(e, 'pointer')}
+      onMouseLeave={(e) => setCursor(e, '')}
       fillRadialGradientStartPoint={{ x: 0, y: 0 }}
       fillRadialGradientEndPoint={{ x: 0, y: 0 }}
       fillRadialGradientStartRadius={0}
