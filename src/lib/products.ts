@@ -146,7 +146,7 @@ export function fetchProducts(src?: ProductSource): Promise<Product[]> {
 
 /**
  * Resolve a deduped snapshot map for the given product IDs from the active
- * source. Used to bake `data.products` into the exported map.json as an offline
+ * source. Used to bake `data.products` into the exported dripfit-config as an offline
  * fallback. Live sources query exactly these IDs; the mock source filters the
  * cached catalog.
  */

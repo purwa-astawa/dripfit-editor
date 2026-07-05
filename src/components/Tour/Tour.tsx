@@ -33,7 +33,7 @@ const introSteps: Step[] = [
     placement: 'bottom',
     title: '👋 Start here — Configure',
     content:
-      'Open Configure to get set up — load a background image, connect your Shopify store, or import an existing map.json.',
+      'Open Configure to get set up — load a background image, connect your Shopify store, or import an existing dripfit-config.',
   },
 ];
 
@@ -60,15 +60,15 @@ const configureSteps: Step[] = [
     placement: 'bottom',
     title: '3 · Storefront API access token',
     content:
-      'A public Storefront API access token. It’s safe to embed in the exported map.json and lets the widget fetch product details (title, image).',
+      'A public Storefront API access token. It’s safe to embed in the exported dripfit-config and lets the widget fetch product details (title, image).',
   },
   {
     target: '[data-tour="cfg-import"]',
     disableBeacon: true,
     placement: 'top',
-    title: '4 · Import a map.json',
+    title: '4 · Import a dripfit-config',
     content:
-      'Already have a map? Paste its JSON here (or use “From file”) to keep editing an existing map instead of starting fresh.',
+      'Already have a dripfit-config? Paste its JSON here (or use “From file”) to keep editing an existing one instead of starting fresh.',
   },
 ];
 

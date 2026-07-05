@@ -1,7 +1,7 @@
 # DripFit Editor — Image Mapper Generator
 
 Admin-side tool for placing **callouts** (point or region) on a background image,
-attaching compatible product IDs to each, and exporting a `map.json` consumed by the
+attaching compatible product IDs to each, and exporting a `dripfit-config` consumed by the
 Visualizer storefront widget.
 
 ## Stack
@@ -52,7 +52,7 @@ Paste the printed token into **Configure → Storefront API access token**. The
      `…/file/d/{id}/view` → `…/thumbnail?id={id}&sz=w2048`.
    - **Storefront connection** — shop domain, Storefront token, API version
      (persisted to `sessionStorage`).
-   - **Import map.json** — paste the JSON or pick a file (also accepts the legacy
+   - **Import dripfit-config** — paste the JSON or pick a file (also accepts the legacy
      shape).
 
    Pressing **Enter** in the image URL field is a quick "load & go" — it loads and
@@ -65,7 +65,7 @@ Paste the printed token into **Configure → Storefront API access token**. The
    Select it to drag individual vertices, or drag the body to move the whole region.
 4. **Select** a callout to edit its label and attach products (multi-select, backed
    by `public/mock-fashion-products.json` in local dev).
-5. **Export** (toolbar button) previews the `map.json` and lets you **Copy** it to
+5. **Export** (toolbar button) previews the `dripfit-config` and lets you **Copy** it to
    the clipboard or **Download** it.
 
 ### Onboarding & responsiveness
@@ -86,7 +86,7 @@ Paste the printed token into **Configure → Storefront API access token**. The
 ## Coordinate convention
 
 Every callout coordinate is stored as a **ratio (0–1)** of the image's natural
-dimensions — never raw pixels — so the same `map.json` renders identically at any
+dimensions — never raw pixels — so the same `dripfit-config` renders identically at any
 size in both this editor and the Visualizer widget. The Konva stage is sized to fit
 the viewport; ratios are converted to/from stage pixels on every render and drag via
 `src/lib/geometry.ts`. Resizing the window changes only the on-screen render, never
@@ -103,7 +103,7 @@ src/
     CalloutEditPanel/   # label + shape summary + product picker for the selection
     ProductPicker/      # searchable multi-select against the catalog
     ConfigureModal/     # setup group: load image + Shopify settings + import
-    ExportModal/        # export the map.json (copy / download, baked snapshot)
+    ExportModal/        # export the dripfit-config (copy / download, baked snapshot)
     Tour/               # two-phase react-joyride onboarding tour
     MobileWarning/      # full-screen "use a bigger screen" advisory on phones
   store/editorStore.ts  # single Zustand store (see spec for shape)
@@ -111,11 +111,11 @@ src/
     geometry.ts         # ratio<->pixel conversion + geometric wrappers (centroid,
                         #   area, point-in-polygon, self-intersection)
     imageUrl.ts         # rewrite Dropbox/Drive share links to direct-image URLs
-    schema.ts           # map.json types + defensive parse/validate
+    schema.ts           # dripfit-config types + defensive parse/validate
     products.ts         # catalog loader (mock now, Storefront API later)
 ```
 
-## Data model (`map.json`)
+## Data model (`dripfit-config`)
 
 ```jsonc
 {

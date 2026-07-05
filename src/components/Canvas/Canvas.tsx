@@ -33,7 +33,7 @@ export function Canvas() {
   const [containerRef, size] = useElementSize<HTMLDivElement>();
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
 
-  // Preview interaction state (ephemeral — not part of the map): which callout's
+  // Preview interaction state (ephemeral — not part of the config): which callout's
   // product deck is open, and the product picked per callout (replaces its
   // beacon with that product's card). Cleared when leaving preview mode.
   const [openCalloutId, setOpenCalloutId] = useState<string | null>(null);

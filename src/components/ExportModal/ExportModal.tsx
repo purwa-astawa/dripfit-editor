@@ -8,7 +8,7 @@ interface Props {
   onClose: () => void;
 }
 
-/** Export the current map.json — copy to clipboard or download. Shopify
+/** Export the current dripfit-config — copy to clipboard or download. Shopify
  *  connection settings live in the Configure modal. */
 export function ExportModal({ open, onClose }: Props) {
   const image = useEditorStore((s) => s.image);
@@ -40,7 +40,7 @@ export function ExportModal({ open, onClose }: Props) {
         if (!cancelled) setSnapshotError(null);
       } catch (err) {
         // The map is still exportable; the widget falls back to fetching
-        // products live. Warn, but leave `products` empty and show the map.
+        // products live. Warn, but leave `products` empty and show the config.
         if (!cancelled) {
           setSnapshotError(
             `Couldn't bake product snapshots: ${(err as Error).message}`,
@@ -71,7 +71,7 @@ export function ExportModal({ open, onClose }: Props) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'map.json';
+    a.download = 'dripfit-config.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -86,7 +86,7 @@ export function ExportModal({ open, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-800">Export map.json</h2>
+          <h2 className="text-sm font-semibold text-slate-800">Export dripfit-config</h2>
           <button
             type="button"
             onClick={onClose}

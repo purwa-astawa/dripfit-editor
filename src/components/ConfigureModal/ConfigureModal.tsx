@@ -19,7 +19,7 @@ interface Props {
 
 /**
  * "Configure" — the single place to get set up: load the background image,
- * connect the Shopify storefront, and import an existing map.json.
+ * connect the Shopify storefront, and import an existing dripfit-config.
  */
 export function ConfigureModal({ open, onClose }: Props) {
   const image = useEditorStore((s) => s.image);
@@ -183,7 +183,7 @@ export function ConfigureModal({ open, onClose }: Props) {
             </label>
             <p className="text-xs text-slate-400">
               The Storefront token is a public access token — safe to embed in the
-              exported map.json. Settings persist for this browser session.
+              exported dripfit-config. Settings persist for this browser session.
             </p>
           </section>
 
@@ -191,7 +191,7 @@ export function ConfigureModal({ open, onClose }: Props) {
           <section className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Import map.json
+                Import dripfit-config
               </h3>
               <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-100">
                 <Upload size={13} /> From file
@@ -208,7 +208,7 @@ export function ConfigureModal({ open, onClose }: Props) {
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               spellCheck={false}
-              placeholder="Paste map.json here…"
+              placeholder="Paste dripfit-config here…"
               className="h-32 w-full resize-none rounded-md border border-slate-300 p-2 font-mono text-xs focus:border-blue-500 focus:outline-none"
             />
             {importError && (

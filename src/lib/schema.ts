@@ -1,4 +1,4 @@
-// Canonical map.json schema — must match the Visualizer widget exactly.
+// Canonical dripfit-config schema — must match the Visualizer widget exactly.
 // All callout coordinates are ratios (0–1) of the poster's natural width/height.
 //
 // Shape:
@@ -169,19 +169,19 @@ export interface ProductSnapshot {
   featuredImage?: string | null;
 }
 
-export interface MapData {
+export interface DripfitConfigData {
   mapId: string;
   image: { width: number; height: number };
   callouts: Callout[];
   products: Record<string, ProductSnapshot>;
 }
 
-export interface MapDocument {
+export interface DripfitConfig {
   posterUrl: string;
   storefrontAPIKey: string;
   shopDomain: string;
   apiVersion: string;
-  data: MapData;
+  data: DripfitConfigData;
 }
 
 // --- parsing / validation --------------------------------------------------
@@ -191,9 +191,9 @@ export interface MapDocument {
  * the legacy `{ mapId, image: { url, width, height }, callouts }` shape. Throws
  * on malformed input.
  */
-export function parseMapDocument(input: unknown): MapDocument {
+export function parseDripfitConfig(input: unknown): DripfitConfig {
   if (typeof input !== 'object' || input === null) {
-    throw new Error('map.json must be an object');
+    throw new Error('dripfit-config must be an object');
   }
   const obj = input as Record<string, unknown>;
 
@@ -204,7 +204,7 @@ export function parseMapDocument(input: unknown): MapDocument {
     return migrateLegacyShape(obj);
   }
   throw new Error(
-    'map.json: unrecognized shape (expected a "data" object, or legacy "image" + "callouts")',
+    'dripfit-config: unrecognized shape (expected a "data" object, or legacy "image" + "callouts")',
   );
 }
 
@@ -226,7 +226,7 @@ function isBeaconSize(v: unknown): v is BeaconSize {
   return (BEACON_SIZES as readonly string[]).includes(v as string);
 }
 
-function parseCurrentShape(obj: Record<string, unknown>): MapDocument {
+function parseCurrentShape(obj: Record<string, unknown>): DripfitConfig {
   const data = obj.data as Record<string, unknown>;
   const image = data.image as Record<string, unknown> | undefined;
   if (
@@ -234,10 +234,10 @@ function parseCurrentShape(obj: Record<string, unknown>): MapDocument {
     typeof image.width !== 'number' ||
     typeof image.height !== 'number'
   ) {
-    throw new Error('map.json: data.image must have numeric { width, height }');
+    throw new Error('dripfit-config: data.image must have numeric { width, height }');
   }
   if (!Array.isArray(data.callouts)) {
-    throw new Error('map.json: data.callouts must be an array');
+    throw new Error('dripfit-config: data.callouts must be an array');
   }
 
   return {
@@ -254,7 +254,7 @@ function parseCurrentShape(obj: Record<string, unknown>): MapDocument {
   };
 }
 
-function migrateLegacyShape(obj: Record<string, unknown>): MapDocument {
+function migrateLegacyShape(obj: Record<string, unknown>): DripfitConfig {
   const image = obj.image as Record<string, unknown> | undefined;
   if (
     !image ||
@@ -263,7 +263,7 @@ function migrateLegacyShape(obj: Record<string, unknown>): MapDocument {
     typeof image.height !== 'number'
   ) {
     throw new Error(
-      'map.json (legacy): "image" must have { url, width, height }',
+      'dripfit-config (legacy): "image" must have { url, width, height }',
     );
   }
   const callouts = (obj.callouts as unknown[]).map((c, i) => parseCallout(c, i));
@@ -300,15 +300,15 @@ function parseProducts(input: unknown): Record<string, ProductSnapshot> {
 
 function parseCallout(input: unknown, index: number): Callout {
   if (typeof input !== 'object' || input === null) {
-    throw new Error(`map.json: callouts[${index}] must be an object`);
+    throw new Error(`dripfit-config: callouts[${index}] must be an object`);
   }
   const c = input as Record<string, unknown>;
 
   if (typeof c.id !== 'string') {
-    throw new Error(`map.json: callouts[${index}].id must be a string`);
+    throw new Error(`dripfit-config: callouts[${index}].id must be a string`);
   }
   if (typeof c.label !== 'string') {
-    throw new Error(`map.json: callouts[${index}].label must be a string`);
+    throw new Error(`dripfit-config: callouts[${index}].label must be a string`);
   }
 
   const shape = parseShape(c.shape, index);
@@ -361,7 +361,7 @@ function parseCalloutProducts(
       const p = raw as Record<string, unknown>;
       if (typeof p?.id !== 'string') {
         throw new Error(
-          `map.json: callouts[${index}].products[${j}].id must be a string`,
+          `dripfit-config: callouts[${index}].products[${j}].id must be a string`,
         );
       }
       return typeof p.image === 'string'
@@ -373,13 +373,13 @@ function parseCalloutProducts(
     return (c.productIds as string[]).map((id) => ({ id }));
   }
   throw new Error(
-    `map.json: callouts[${index}] must have products[{id}] (or legacy productIds[])`,
+    `dripfit-config: callouts[${index}] must have products[{id}] (or legacy productIds[])`,
   );
 }
 
 function parseShape(input: unknown, index: number): Shape {
   if (typeof input !== 'object' || input === null) {
-    throw new Error(`map.json: callouts[${index}].shape must be an object`);
+    throw new Error(`dripfit-config: callouts[${index}].shape must be an object`);
   }
   const s = input as Record<string, unknown>;
 
@@ -390,7 +390,7 @@ function parseShape(input: unknown, index: number): Shape {
       typeof s.r !== 'number'
     ) {
       throw new Error(
-        `map.json: callouts[${index}].shape (circle) needs numeric cx, cy, r`,
+        `dripfit-config: callouts[${index}].shape (circle) needs numeric cx, cy, r`,
       );
     }
     return { type: 'circle', cx: s.cx, cy: s.cy, r: s.r };
@@ -399,14 +399,14 @@ function parseShape(input: unknown, index: number): Shape {
   if (s.type === 'region') {
     if (!Array.isArray(s.points) || s.points.length < 3) {
       throw new Error(
-        `map.json: callouts[${index}].shape (region) needs ≥3 points`,
+        `dripfit-config: callouts[${index}].shape (region) needs ≥3 points`,
       );
     }
     const points = s.points.map((p, j) => {
       const pt = p as Record<string, unknown>;
       if (typeof pt?.x !== 'number' || typeof pt?.y !== 'number') {
         throw new Error(
-          `map.json: callouts[${index}].shape.points[${j}] must be { x, y }`,
+          `dripfit-config: callouts[${index}].shape.points[${j}] must be { x, y }`,
         );
       }
       return { x: pt.x, y: pt.y };
@@ -415,6 +415,6 @@ function parseShape(input: unknown, index: number): Shape {
   }
 
   throw new Error(
-    `map.json: callouts[${index}].shape.type must be "circle" or "region"`,
+    `dripfit-config: callouts[${index}].shape.type must be "circle" or "region"`,
   );
 }

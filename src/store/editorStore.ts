@@ -5,14 +5,14 @@ import type {
   Callout,
   CalloutProduct,
   ImageMeta,
-  MapDocument,
+  DripfitConfig,
   Shape,
 } from '../lib/schema';
 import {
   DEFAULT_API_VERSION,
   makeBeacon,
   syncBeacon,
-  parseMapDocument,
+  parseDripfitConfig,
 } from '../lib/schema';
 import { normalizeImageUrl } from '../lib/imageUrl';
 
@@ -33,7 +33,7 @@ export interface Point {
   y: number;
 }
 
-/** Shopify connection config embedded in the exported map.json. */
+/** Shopify connection config embedded in the exported dripfit-config. */
 export interface ShopifyConfig {
   storefrontApiKey: string;
   shopDomain: string;
@@ -89,9 +89,9 @@ export interface EditorState {
   setCalloutProducts: (id: string, products: CalloutProduct[]) => void;
   selectCallout: (id: string | null) => void;
   deleteCallout: (id: string) => void;
-  /** Serialize the store to the map.json shape. `products` is left empty — the
+  /** Serialize the store to the dripfit-config shape. `products` is left empty — the
    *  UI export step bakes the snapshot from the active product source. */
-  exportJson: () => MapDocument;
+  exportJson: () => DripfitConfig;
   loadFromJson: (json: unknown) => void;
   reset: () => void;
 }
@@ -400,7 +400,7 @@ export const useEditorStore = create<EditorState>()(
       },
 
       loadFromJson: (json) => {
-        const doc = parseMapDocument(json);
+        const doc = parseDripfitConfig(json);
         const cfg = {
           storefrontApiKey: doc.storefrontAPIKey,
           shopDomain: doc.shopDomain,
