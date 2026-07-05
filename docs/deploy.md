@@ -234,6 +234,130 @@ The `403/404 → index.html` error responses still apply on the custom domain.
 
 ---
 
+## Part D — License gate (Gumroad + verify Lambda)
+
+The editor is gated behind a **Gumroad license key**. The SPA POSTs the key to a
+same-origin `/api/verify`, which CloudFront routes to a small **AWS Lambda**
+(source: [`infra/verify-lambda/index.mjs`](../infra/verify-lambda/index.mjs))
+that verifies the key against the Gumroad API server-side. The Gumroad
+`product_id` and the pass/fail decision live only in the Lambda, never in the
+browser bundle.
+
+> **Soft gate, by design.** The assets stay publicly downloadable from
+> CloudFront/S3, so this gates the *UI* for casual users — it is not hard access
+> control. A hard gate would require CloudFront **signed cookies** (a trusted key
+> group + a restricted default behavior); out of scope here.
+
+This is a **one-time manual setup**, separate from the GitHub Actions pipeline
+(the deploy role only writes S3 + invalidates CloudFront — it does not touch
+Lambda). New placeholders: `<FN_URL_HOST>` (the Function URL host, e.g.
+`abc123.lambda-url.<REGION>.on.aws`), `<GUMROAD_PRODUCT_ID>`.
+
+### 1. Gumroad — enable license keys
+
+- Product → **Checkout** tab → enable **"Generate a unique license key per
+  sale."**
+- Record the product's **`product_id`** (used as `GUMROAD_PRODUCT_ID` below). The
+  buyer receives a **license key** per sale (in the receipt email + their Gumroad
+  Library); they can self-recover it at `gumroad.com/license-key-lookup`.
+
+### 2. Deploy the verify Lambda
+
+Node 20+ runtime (global `fetch`; no dependencies — a single `index.mjs`).
+
+```bash
+cd infra/verify-lambda
+zip -r function.zip index.mjs
+
+aws lambda create-function \
+  --function-name dripfit-verify-license \
+  --runtime nodejs20.x \
+  --handler index.handler \
+  --zip-file fileb://function.zip \
+  --role <LAMBDA_EXEC_ROLE_ARN> \
+  --environment "Variables={GUMROAD_PRODUCT_ID=<GUMROAD_PRODUCT_ID>}" \
+  --region <REGION>
+```
+
+`<LAMBDA_EXEC_ROLE_ARN>` is a basic Lambda execution role (the AWS-managed
+`AWSLambdaBasicExecutionRole` policy is enough — it only needs CloudWatch Logs;
+no S3/CloudFront access). Update later with:
+
+```bash
+aws lambda update-function-code --function-name dripfit-verify-license \
+  --zip-file fileb://function.zip --region <REGION>
+```
+
+### 3. Function URL (CloudFront is the only caller)
+
+```bash
+aws lambda create-function-url-config \
+  --function-name dripfit-verify-license \
+  --auth-type NONE \
+  --region <REGION>
+
+# Allow public invoke of the URL (CloudFront calls it unsigned; the function
+# itself validates every request).
+aws lambda add-permission \
+  --function-name dripfit-verify-license \
+  --statement-id FunctionURLAllowPublicAccess \
+  --action lambda:InvokeFunctionUrl \
+  --principal '*' \
+  --function-url-auth-type NONE \
+  --region <REGION>
+```
+
+Record the Function URL host as `<FN_URL_HOST>`.
+
+### 4. CloudFront — route `/api/verify` to the Lambda
+
+On the editor's distribution:
+
+- **Origins** → **Create origin**: origin domain `<FN_URL_HOST>`, protocol
+  **HTTPS only**. **Recommended:** add a **custom header** `x-origin-secret` with
+  a random value, and set the same value as the Lambda's `CF_SHARED_SECRET` env
+  var. The Function URL is public (`auth-type NONE`), so without this a caller
+  who discovers `<FN_URL_HOST>` can hit the Lambda directly and bypass
+  CloudFront; the header lets the Lambda reject anything not fronted by
+  CloudFront (it returns 403 on mismatch). Set the env with:
+
+  ```bash
+  aws lambda update-function-configuration \
+    --function-name dripfit-verify-license \
+    --environment "Variables={GUMROAD_PRODUCT_ID=<GUMROAD_PRODUCT_ID>,CF_SHARED_SECRET=<RANDOM>}" \
+    --region <REGION>
+  ```
+- **Behaviors** → **Create behavior**:
+  - **Path pattern**: `/api/verify`
+  - **Origin**: the Function URL origin above.
+  - **Viewer protocol policy**: Redirect HTTP to HTTPS.
+  - **Allowed methods**: **GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE** (POST
+    must be allowed).
+  - **Cache policy**: **CachingDisabled** (never cache auth responses).
+  - **Origin request policy**: **AllViewerExceptHostHeader** (forwards the body;
+    the Function URL rejects a mismatched `Host`).
+- Precedence: this behavior must sit **above** the default `*` behavior.
+
+> The `403/404 → /index.html` custom error responses (Part A) apply to the SPA
+> paths, not `/api/verify` — the Lambda returns real 4xx/5xx JSON.
+
+### 5. Test
+
+```bash
+# Bad key → 401 { "authenticated": false, ... }
+curl -sS -X POST https://dripfit-builder.garusin.com/api/verify \
+  -H 'content-type: application/json' \
+  -d '{"license_key":"not-a-real-key"}'
+```
+
+A real purchased key returns `{ "authenticated": true, "purchaser_email": "…" }`.
+
+> **Local dev**: `npm run dev` has no `/api/verify` origin, so the gate is
+> auto-bypassed in DEV (`VITE_AUTH_DEV_BYPASS`, default `true`). See
+> `.env.example`.
+
+---
+
 ## How it works
 
 - **Trigger**: push to `main` (or run the workflow manually via *Actions →
