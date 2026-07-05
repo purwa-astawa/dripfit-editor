@@ -14,7 +14,7 @@ export function CalloutList() {
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div data-tour="callouts" className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
         <h2 className="text-sm font-semibold text-slate-800">Callouts</h2>
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">

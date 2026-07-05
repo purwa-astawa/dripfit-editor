@@ -8,6 +8,7 @@ import {
   ClipboardPaste,
   AlertCircle,
   Check,
+  Type,
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { normalizeImageUrl } from '../../lib/imageUrl';
@@ -22,6 +23,8 @@ interface Props {
  * connect the Shopify storefront, and import an existing dripfit-config.
  */
 export function ConfigureModal({ open, onClose }: Props) {
+  const title = useEditorStore((s) => s.title);
+  const setTitle = useEditorStore((s) => s.setTitle);
   const image = useEditorStore((s) => s.image);
   const imageStatus = useEditorStore((s) => s.imageStatus);
   const imageError = useEditorStore((s) => s.imageError);
@@ -100,6 +103,25 @@ export function ConfigureModal({ open, onClose }: Props) {
         </div>
 
         <div className="flex flex-col gap-5 overflow-y-auto p-4">
+          {/* Config title */}
+          <section className="flex flex-col gap-2">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <Type size={13} /> Title
+            </h3>
+            <input
+              type="text"
+              data-tour="cfg-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Summer 2026 Lookbook"
+              className="rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+            />
+            <p className="text-xs text-slate-400">
+              A name for this dripfit-config. The Visualizer tags each purchased
+              product with it for attribution.
+            </p>
+          </section>
+
           {/* Background image */}
           <section className="flex flex-col gap-2">
             <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">

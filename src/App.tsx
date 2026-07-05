@@ -5,6 +5,7 @@ import { Toolbar } from './components/Toolbar/Toolbar';
 import { CalloutList } from './components/CalloutList/CalloutList';
 import { CalloutEditPanel } from './components/CalloutEditPanel/CalloutEditPanel';
 import { MobileWarning } from './components/MobileWarning/MobileWarning';
+import { HelpButton } from './components/Help/HelpButton';
 
 // Code-split the heavy pieces out of the initial bundle:
 // - Canvas pulls in Konva/react-konva/use-image (the largest dependency) and is
@@ -99,6 +100,8 @@ export default function App() {
           </div>
         </aside>
       </div>
+
+      <HelpButton />
     </div>
   );
 }

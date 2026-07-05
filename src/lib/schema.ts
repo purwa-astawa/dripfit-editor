@@ -177,6 +177,9 @@ export interface DripfitConfigData {
 }
 
 export interface DripfitConfig {
+  /** Human-readable name for this config. The Visualizer tags each purchased
+   *  product with it (e.g. a cart line-item property) for attribution. */
+  title: string;
   posterUrl: string;
   storefrontAPIKey: string;
   shopDomain: string;
@@ -241,6 +244,7 @@ function parseCurrentShape(obj: Record<string, unknown>): DripfitConfig {
   }
 
   return {
+    title: asString(obj.title),
     posterUrl: asString(obj.posterUrl),
     storefrontAPIKey: asString(obj.storefrontAPIKey),
     shopDomain: asString(obj.shopDomain),
@@ -268,6 +272,7 @@ function migrateLegacyShape(obj: Record<string, unknown>): DripfitConfig {
   }
   const callouts = (obj.callouts as unknown[]).map((c, i) => parseCallout(c, i));
   return {
+    title: asString(obj.title),
     posterUrl: image.url,
     storefrontAPIKey: '',
     shopDomain: '',

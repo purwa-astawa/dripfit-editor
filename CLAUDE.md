@@ -75,10 +75,15 @@ exports a `dripfit-config` for the Visualizer widget. Coordinates are stored as 
 - **region** — a polygon-shaped callout (was previously "polygon"); the shape
   `type` value is `"region"`.
 - **point** / **circle** — a circular callout; unchanged.
-- **beacon** — an animated indicator the Visualizer shows for a **region**
-  callout. Its `beacon` field is one of 9 anchor positions (`topleft`, `top`,
-  `topright`, `left`, `center`, `right`, `bottomleft`, `bottom`, `bottomright`);
-  default `center`. Circle callouts have no beacon.
+- **beacon** — an animated indicator the Visualizer shows for a callout. It lives
+  at the **callout level** (`callout.beacon`), and **every** callout (region and
+  circle) has one: `{ position, x, y, size, color }`. `position` is one of 9
+  anchors (`topleft`, `top`, `topright`, `left`, `center`, `right`, `bottomleft`,
+  `bottom`, `bottomright`; default `center`) — for a **region** it anchors on the
+  bounding box, for a **circle** it's pinned to `center` (the circle's centre).
+  `x,y` is the resolved ratio coordinate; `size` is `standard`/`large`/`larger`;
+  `color` is a hex string. (Was previously region-only and nested in the region
+  shape.)
 - Pure geometry helpers in `src/lib/geometry.ts` intentionally keep the
   mathematical term "polygon" (they wrap the `geometric` library); that is not the
   domain "region" concept and should stay as-is.

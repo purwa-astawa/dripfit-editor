@@ -43,7 +43,10 @@ export function Toolbar() {
       <img src="/logo.png" alt="DripFit Lab by GARUSIN" className="mr-2 h-10 w-auto" />
 
       {/* Tool toggles */}
-      <div className="flex overflow-hidden rounded-md border border-slate-300">
+      <div
+        data-tour="tools"
+        className="flex overflow-hidden rounded-md border border-slate-300"
+      >
         {TOOLS.map(({ id, label, icon: Icon }) => {
           const active = tool === id;
           return (

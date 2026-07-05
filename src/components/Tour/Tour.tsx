@@ -39,10 +39,18 @@ const introSteps: Step[] = [
 
 const configureSteps: Step[] = [
   {
+    target: '[data-tour="cfg-title"]',
+    disableBeacon: true,
+    placement: 'bottom',
+    title: '1 · Title',
+    content:
+      'Give this dripfit-config a name, e.g. “Summer 2026 Lookbook”. The storefront widget tags every product purchased through it with this title, so you can attribute sales back to this config.',
+  },
+  {
     target: '[data-tour="cfg-image"]',
     disableBeacon: true,
     placement: 'bottom',
-    title: '1 · Background image',
+    title: '2 · Background image',
     content:
       'Paste a public image URL here and press Enter (or click Load). Dropbox and Google Drive share links work — the file just needs to be publicly shared. This poster is what shoppers see behind the callouts.',
   },
@@ -50,7 +58,7 @@ const configureSteps: Step[] = [
     target: '[data-tour="cfg-domain"]',
     disableBeacon: true,
     placement: 'bottom',
-    title: '2 · Shop domain',
+    title: '3 · Shop domain',
     content:
       'Your Shopify store domain, e.g. your-shop.myshopify.com. The storefront widget uses it to look up products live.',
   },
@@ -58,7 +66,7 @@ const configureSteps: Step[] = [
     target: '[data-tour="cfg-token"]',
     disableBeacon: true,
     placement: 'bottom',
-    title: '3 · Storefront API access token',
+    title: '4 · Storefront API access token',
     content:
       'A public Storefront API access token. It’s safe to embed in the exported dripfit-config and lets the widget fetch product details (title, image).',
   },
@@ -66,7 +74,7 @@ const configureSteps: Step[] = [
     target: '[data-tour="cfg-import"]',
     disableBeacon: true,
     placement: 'top',
-    title: '4 · Import a dripfit-config',
+    title: '5 · Import a dripfit-config',
     content:
       'Already have a dripfit-config? Paste its JSON here (or use “From file”) to keep editing an existing one instead of starting fresh.',
   },
@@ -74,20 +82,20 @@ const configureSteps: Step[] = [
 
 const toolsSteps: Step[] = [
   {
-    target: '[data-tour="tool-place-point"]',
+    target: '[data-tour="tools"]',
     disableBeacon: true,
     placement: 'bottom',
-    title: 'Place a POI',
+    title: 'Mark where shoppers interact',
     content:
-      'The POI tool drops a single point on the image — click wherever a product sits. Select the callout afterwards to label it and attach products.',
+      'Both tools define clickable spots shoppers tap in the storefront. POI drops a single point — one clickable spot (e.g. a product on the model). Region outlines a whole area that’s interactive — click to add points, then double-click or press Enter to finish. Either way, select it afterwards to label it and attach products.',
   },
   {
-    target: '[data-tour="tool-draw-region"]',
+    target: '[data-tour="callouts"]',
     disableBeacon: true,
-    placement: 'bottom',
-    title: 'Draw a Region',
+    placement: 'left',
+    title: 'Your callouts',
     content:
-      'The Region tool outlines an area — click to add points, then double-click or press Enter to finish. Attach products to the region just like a POI.',
+      'Each point or region you place is a callout — a spot shoppers tap in the storefront to see its products. Every callout you add is listed here; select one to rename it, style its beacon, and attach products.',
   },
 ];
 

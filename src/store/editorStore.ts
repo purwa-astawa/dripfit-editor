@@ -42,6 +42,9 @@ export interface ShopifyConfig {
 
 export interface EditorState {
   mapId: string;
+  /** Human-readable config name, exported and used by the Visualizer to tag
+   *  purchased products for attribution. */
+  title: string;
   image: ImageMeta | null;
   imageStatus: ImageStatus;
   imageError: string | null;
@@ -65,6 +68,7 @@ export interface EditorState {
   productCardShape: ProductCardShape;
 
   setImage: (url: string, width: number, height: number) => void;
+  setTitle: (title: string) => void;
   setConfigureOpen: (open: boolean) => void;
   setBeaconPreview: (on: boolean) => void;
   setProductCardMode: (mode: ProductCardMode) => void;
@@ -144,6 +148,7 @@ export const useEditorStore = create<EditorState>()(
   devtools(
     (set, get) => ({
       mapId: uuid(),
+      title: '',
       image: null,
       imageStatus: 'idle',
       imageError: null,
@@ -163,6 +168,8 @@ export const useEditorStore = create<EditorState>()(
           false,
           'setImage',
         ),
+
+      setTitle: (title) => set({ title }, false, 'setTitle'),
 
       setConfigureOpen: (open) =>
         set({ configureOpen: open }, false, 'setConfigureOpen'),
@@ -368,9 +375,10 @@ export const useEditorStore = create<EditorState>()(
         ),
 
       exportJson: () => {
-        const { mapId, image, callouts, storefrontApiKey, shopDomain, apiVersion } =
+        const { mapId, title, image, callouts, storefrontApiKey, shopDomain, apiVersion } =
           get();
         return {
+          title,
           posterUrl: image?.url ?? '',
           storefrontAPIKey: storefrontApiKey,
           shopDomain,
@@ -410,6 +418,7 @@ export const useEditorStore = create<EditorState>()(
         set(
           {
             mapId: doc.data.mapId || uuid(),
+            title: doc.title,
             image: doc.posterUrl
               ? {
                   url: doc.posterUrl,
@@ -434,6 +443,7 @@ export const useEditorStore = create<EditorState>()(
         set(
           {
             mapId: uuid(),
+            title: '',
             image: null,
             imageStatus: 'idle',
             imageError: null,
