@@ -1,0 +1,77 @@
+name: Deploy to S3 + CloudFront
+
+# Build the Vite app and publish it to S3, then invalidate CloudFront so the new
+# build is served immediately. Runs on every push to main; can also be triggered
+# manually. AWS auth is via OIDC (no long-lived keys) — see docs/deploy.md.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Serialize deploys so they don't interleave S3 syncs. Don't cancel an in-flight
+# run — let it finish cleanly; the next push queues behind it.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required to fetch the OIDC token for AWS role assumption
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck + lint
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+        env:
+          # Public PostHog config, baked into the bundle. Optional — analytics
+          # no-ops if the token is empty (see src/lib/analytics.ts).
+          VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.VITE_POSTHOG_PROJECT_TOKEN }}
+          VITE_POSTHOG_HOST: ${{ vars.VITE_POSTHOG_HOST }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Upload hashed assets (immutable, long cache)
+        # dist/assets/* have content-hashed filenames → safe to cache for a year.
+        # Scoped to the assets/ prefix so --delete only prunes stale hashed chunks
+        # here and never touches root files.
+        run: |
+          aws s3 sync dist/assets/ "s3://${{ vars.S3_BUCKET }}/assets/" \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable"
+
+      - name: Upload index.html + root files (no-cache)
+        # index.html and the other non-hashed root files (logo.png, vite.svg,
+        # mock-fashion-products.json, …) keep stable names between builds, so they
+        # must revalidate rather than be pinned. --delete prunes removed root files;
+        # assets/ is excluded so its immutable objects are left intact.
+        run: |
+          aws s3 sync dist/ "s3://${{ vars.S3_BUCKET }}/" \
+            --delete \
+            --exclude "assets/*" \
+            --cache-control "no-cache"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/*"
