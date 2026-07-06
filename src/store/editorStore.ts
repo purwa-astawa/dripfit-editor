@@ -375,14 +375,24 @@ export const useEditorStore = create<EditorState>()(
         ),
 
       exportJson: () => {
-        const { mapId, title, image, callouts, storefrontApiKey, shopDomain, apiVersion } =
-          get();
+        const {
+          mapId,
+          title,
+          image,
+          callouts,
+          storefrontApiKey,
+          shopDomain,
+          apiVersion,
+          productCardShape,
+          productCardMode,
+        } = get();
         return {
           title,
           posterUrl: image?.url ?? '',
           storefrontAPIKey: storefrontApiKey,
           shopDomain,
           apiVersion,
+          display: { shape: productCardShape, details: productCardMode },
           data: {
             mapId,
             image: { width: image?.width ?? 0, height: image?.height ?? 0 },
@@ -429,6 +439,8 @@ export const useEditorStore = create<EditorState>()(
             imageStatus: 'idle',
             imageError: null,
             callouts: doc.data.callouts,
+            productCardShape: doc.display.shape,
+            productCardMode: doc.display.details,
             selectedCalloutId: null,
             tool: 'select',
             draftRegionPoints: [],

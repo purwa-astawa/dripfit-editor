@@ -176,6 +176,18 @@ export interface DripfitConfigData {
   products: Record<string, ProductSnapshot>;
 }
 
+/** Global "selected product card" display options — one setting for the whole
+ *  config, not per-callout. `shape` is the replacing card's image shape;
+ *  `details` is whether its title + View-product link always show (`details`) or
+ *  hide behind an ⓘ button (`info`). The Visualizer reads these off the config
+ *  (attribute overrides win over the config value). */
+export interface DisplayOptions {
+  shape: 'square' | 'circle';
+  details: 'info' | 'details';
+}
+export const DEFAULT_CARD_SHAPE: DisplayOptions['shape'] = 'square';
+export const DEFAULT_CARD_DETAILS: DisplayOptions['details'] = 'info';
+
 export interface DripfitConfig {
   /** Human-readable name for this config. The Visualizer tags each purchased
    *  product with it (e.g. a cart line-item property) for attribution. */
@@ -184,6 +196,8 @@ export interface DripfitConfig {
   storefrontAPIKey: string;
   shopDomain: string;
   apiVersion: string;
+  /** Global card display options (Square/Circle + Always-show/Hide-details). */
+  display: DisplayOptions;
   data: DripfitConfigData;
 }
 
@@ -249,12 +263,22 @@ function parseCurrentShape(obj: Record<string, unknown>): DripfitConfig {
     storefrontAPIKey: asString(obj.storefrontAPIKey),
     shopDomain: asString(obj.shopDomain),
     apiVersion: asString(obj.apiVersion) || DEFAULT_API_VERSION,
+    display: parseDisplay(obj.display),
     data: {
       mapId: asString(data.mapId),
       image: { width: image.width, height: image.height },
       callouts: data.callouts.map((c, i) => parseCallout(c, i)),
       products: parseProducts(data.products),
     },
+  };
+}
+
+/** Parse the global display options, defaulting anything absent/unrecognized. */
+function parseDisplay(input: unknown): DisplayOptions {
+  const r = asRecord(input);
+  return {
+    shape: r?.shape === 'circle' ? 'circle' : DEFAULT_CARD_SHAPE,
+    details: r?.details === 'details' ? 'details' : DEFAULT_CARD_DETAILS,
   };
 }
 
@@ -277,6 +301,7 @@ function migrateLegacyShape(obj: Record<string, unknown>): DripfitConfig {
     storefrontAPIKey: '',
     shopDomain: '',
     apiVersion: DEFAULT_API_VERSION,
+    display: parseDisplay(obj.display),
     data: {
       mapId: asString(obj.mapId),
       image: { width: image.width, height: image.height },
