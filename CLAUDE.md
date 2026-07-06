@@ -12,6 +12,11 @@
     driving the UI.
 - Only start the dev server (`npm run dev`) or use browser tools when the user
   says so (e.g. "run it", "check in the browser", "take a screenshot").
+- **Fixed dev ports:** when you do run it, this app is pinned to Vite dev
+  `http://localhost:5173` and preview `4173` (`strictPort`). The full registry of
+  local ports across editor/visualizer/demo-store lives in
+  `../shared-knowledge/local-dev-ports.md` — don't reassign a port without updating
+  that table.
 
 ## Before committing
 
