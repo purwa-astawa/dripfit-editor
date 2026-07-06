@@ -6,10 +6,13 @@ import type {
   CalloutProduct,
   ImageMeta,
   DripfitConfig,
+  DisplayOptions,
   Shape,
 } from '../lib/schema';
 import {
   DEFAULT_API_VERSION,
+  DEFAULT_CARD_SHAPE,
+  DEFAULT_CARD_DETAILS,
   makeBeacon,
   syncBeacon,
   parseDripfitConfig,
@@ -19,11 +22,12 @@ import { normalizeImageUrl } from '../lib/imageUrl';
 export type Tool = 'select' | 'place-point' | 'draw-region';
 
 /** How a selected product's card (replacing the beacon in preview) shows its
- *  details: always visible, or hidden behind an info button. Applied globally. */
-export type ProductCardMode = 'details' | 'info';
+ *  details: always visible, or hidden behind an info button. Applied globally.
+ *  Derived from the dripfit-config `display` contract (schema.ts). */
+export type ProductCardMode = DisplayOptions['details'];
 
 /** The selected-product card's image shape in preview. Applied globally. */
-export type ProductCardShape = 'square' | 'circle';
+export type ProductCardShape = DisplayOptions['shape'];
 
 /** Lifecycle of loading a background image from a URL. */
 export type ImageStatus = 'idle' | 'loading' | 'error';
@@ -158,8 +162,8 @@ export const useEditorStore = create<EditorState>()(
       draftRegionPoints: [],
       configureOpen: false,
       beaconPreview: false,
-      productCardMode: 'info',
-      productCardShape: 'square',
+      productCardMode: DEFAULT_CARD_DETAILS,
+      productCardShape: DEFAULT_CARD_SHAPE,
       ...loadShopifyConfig(),
 
       setImage: (url, width, height) =>
