@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X, Copy, Check, Download, AlertCircle } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { getProductSnapshots } from '../../lib/products';
+import { toBase64Utf8 } from '../../lib/base64';
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
+
+type ExportFormat = 'base64' | 'json';
 
 /** Export the current dripfit-config — copy to clipboard or download. Shopify
  *  connection settings live in the Configure modal. */
@@ -19,6 +22,7 @@ export function ExportModal({ open, onClose }: Props) {
   const exportJson = useEditorStore((s) => s.exportJson);
 
   const [preview, setPreview] = useState('');
+  const [format, setFormat] = useState<ExportFormat>('base64');
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
@@ -54,11 +58,20 @@ export function ExportModal({ open, onClose }: Props) {
     };
   }, [open, exportJson, callouts, image, storefrontApiKey, shopDomain, apiVersion]);
 
+  // What the user actually copies/downloads. Base64 is brace-free, so it always
+  // saves into a Shopify theme setting (raw JSON ending in `}}}}` gets rejected).
+  // Memoized (before the early return, per rules of hooks) so a large baked
+  // poster isn't re-encoded on every re-render.
+  const output = useMemo(
+    () => (preview && format === 'base64' ? toBase64Utf8(preview) : preview),
+    [preview, format],
+  );
+
   if (!open) return null;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(preview);
+      await navigator.clipboard.writeText(output);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -67,11 +80,14 @@ export function ExportModal({ open, onClose }: Props) {
   };
 
   const handleDownload = () => {
-    const blob = new Blob([preview], { type: 'application/json' });
+    const isBase64 = format === 'base64';
+    const blob = new Blob([output], {
+      type: isBase64 ? 'text/plain' : 'application/json',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'dripfit-config.json';
+    a.download = isBase64 ? 'dripfit-config.txt' : 'dripfit-config.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -98,10 +114,36 @@ export function ExportModal({ open, onClose }: Props) {
         </div>
 
         <div className="flex flex-col gap-3 p-4">
+          <div className="flex items-center gap-1 self-start rounded-md border border-slate-200 bg-slate-100 p-0.5">
+            <button
+              type="button"
+              onClick={() => setFormat('base64')}
+              className={`rounded px-2.5 py-1 text-xs font-medium ${
+                format === 'base64'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Base64 (theme-safe)
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormat('json')}
+              className={`rounded px-2.5 py-1 text-xs font-medium ${
+                format === 'json'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              JSON
+            </button>
+          </div>
+
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-500">
-              Product snapshots are baked in from your connected store (or the
-              sample catalog if none).
+              {format === 'base64'
+                ? 'Base64-encoded so it pastes into a Shopify theme setting without being rejected as Liquid.'
+                : 'Product snapshots are baked in from your connected store (or the sample catalog if none).'}
             </p>
             <div className="flex gap-2">
               <button
@@ -125,9 +167,11 @@ export function ExportModal({ open, onClose }: Props) {
           </div>
           <textarea
             readOnly
-            value={preview}
+            value={output}
             spellCheck={false}
-            className="h-72 w-full resize-none rounded-md border border-slate-200 bg-slate-50 p-2 font-mono text-xs text-slate-700"
+            className={`h-72 w-full resize-none rounded-md border border-slate-200 bg-slate-50 p-2 font-mono text-xs text-slate-700 ${
+              format === 'base64' ? 'break-all' : ''
+            }`}
           />
           {snapshotError && (
             <p className="flex items-center gap-1.5 text-xs text-amber-600">

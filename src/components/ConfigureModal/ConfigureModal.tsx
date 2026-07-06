@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { normalizeImageUrl } from '../../lib/imageUrl';
+import { parseConfigText } from '../../lib/base64';
 
 interface Props {
   open: boolean;
@@ -63,7 +64,8 @@ export function ConfigureModal({ open, onClose }: Props) {
 
   const importFromText = (text: string) => {
     try {
-      loadFromJson(JSON.parse(text));
+      // Accept raw JSON or the theme-safe base64 export (default export format).
+      loadFromJson(parseConfigText(text));
       setImportError(null);
       setPasteText('');
       onClose();
