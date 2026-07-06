@@ -5,7 +5,8 @@ import { useEditorStore } from '../../store/editorStore';
 // Onboarding phases, each remembered separately in localStorage:
 //   1. "intro"     — before setup, point at the Configure button.
 //   2. "configure" — while the Configure modal is open, walk its fields.
-//   3. "tools"     — once an image is loaded, point at the POI and Region tools.
+//   3. "tools"     — once an image is loaded, point at the Anchor, Pointer Line,
+//                    and Region tools.
 const INTRO_KEY = 'dripfit-tour-intro-seen';
 const CONFIG_KEY = 'dripfit-tour-config-seen';
 const TOOLS_KEY = 'dripfit-tour-tools-seen';
@@ -87,7 +88,31 @@ const toolsSteps: Step[] = [
     placement: 'bottom',
     title: 'Mark where shoppers interact',
     content:
-      'Both tools define clickable spots shoppers tap in the storefront. POI drops a single point — one clickable spot (e.g. a product on the model). Region outlines a whole area that’s interactive — click to add points, then double-click or press Enter to finish. Either way, select it afterwards to label it and attach products.',
+      'These three tools define the clickable spots shoppers tap in the storefront. Each one you place becomes a callout you can label and attach products to. Here’s what they do…',
+  },
+  {
+    target: '[data-tour="tool-place-point"]',
+    disableBeacon: true,
+    placement: 'bottom',
+    title: 'Anchor',
+    content:
+      'Drops a single point — one clickable spot, e.g. a product on the model. Click on the image to place it, then drag the handle to resize its radius.',
+  },
+  {
+    target: '[data-tour="tool-draw-line"]',
+    disableBeacon: true,
+    placement: 'bottom',
+    title: 'Pointer Line',
+    content:
+      'Draws a line with a beacon at one end and a bullet at the other — great for pointing to a detail from a bit of clear space. Click once to start, once more to finish; both ends are clickable in the storefront. Select it later to drag either end or swap which end holds the bullet.',
+  },
+  {
+    target: '[data-tour="tool-draw-region"]',
+    disableBeacon: true,
+    placement: 'bottom',
+    title: 'Region',
+    content:
+      'Outlines a whole interactive area. Click to add points (a dashed preview follows your cursor), then double-click or press Enter to finish — it needs at least 3 points.',
   },
   {
     target: '[data-tour="callouts"]',
@@ -95,7 +120,7 @@ const toolsSteps: Step[] = [
     placement: 'left',
     title: 'Your callouts',
     content:
-      'Each point or region you place is a callout — a spot shoppers tap in the storefront to see its products. Every callout you add is listed here; select one to rename it, style its beacon, and attach products.',
+      'Each anchor, pointer line, or region you place is a callout — a spot shoppers tap in the storefront to see its products. Every callout you add is listed here; select one to rename it, style its beacon, and attach products.',
   },
 ];
 

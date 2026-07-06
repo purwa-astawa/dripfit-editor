@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import {
   MousePointer2,
-  MapPin,
+  Anchor,
+  Spline,
   Hexagon,
   SlidersHorizontal,
   Download,
@@ -19,7 +20,8 @@ import { lock, getEmail, DEV_BYPASS } from '../../lib/auth';
 
 const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2 }[] = [
   { id: 'select', label: 'Select', icon: MousePointer2 },
-  { id: 'place-point', label: 'POI', icon: MapPin },
+  { id: 'place-point', label: 'Anchor', icon: Anchor },
+  { id: 'draw-line', label: 'Pointer Line', icon: Spline },
   { id: 'draw-region', label: 'Region', icon: Hexagon },
 ];
 

@@ -58,14 +58,18 @@ Paste the printed token into **Configure → Storefront API access token**. The
    Pressing **Enter** in the image URL field is a quick "load & go" — it loads and
    closes Configure. Clicking **Load** loads but keeps the modal open so you can keep
    configuring.
-2. **POI** tool — click on the image to drop a circular callout. Drag it to move;
-   drag the white handle to resize its radius.
-3. **Region** tool — click to add points (a live dashed preview follows the cursor),
+2. **Anchor** tool — click on the image to drop a circular callout (a single
+   clickable point). Drag it to move; drag the white handle to resize its radius.
+3. **Pointer Line** tool — click once to place the start, once more to place the
+   end. The line carries a beacon at one end and a bullet at the other (both
+   clickable in the Visualizer); select it to drag either endpoint or the whole
+   line, and use the edit panel's **Bullet end** toggle to swap which end is which.
+4. **Region** tool — click to add points (a live dashed preview follows the cursor),
    then **double-click, press Enter, or click Finish** to commit (needs ≥ 3 points).
    Select it to drag individual vertices, or drag the body to move the whole region.
-4. **Select** a callout to edit its label and attach products (multi-select, backed
+5. **Select** a callout to edit its label and attach products (multi-select, backed
    by `public/mock-fashion-products.json` in local dev).
-5. **Export** (toolbar button) previews the `dripfit-config` and lets you **Copy** it to
+6. **Export** (toolbar button) previews the `dripfit-config` and lets you **Copy** it to
    the clipboard or **Download** it.
 
 ### Onboarding & responsiveness
@@ -74,7 +78,7 @@ Paste the printed token into **Configure → Storefront API access token**. The
   phases: **intro** points at the **Configure** button; opening Configure runs a
   **configure** walkthrough of its fields (image URL, shop domain, Storefront token,
   import); and once an image is loaded (modal closed) the **tools** phase highlights
-  the **POI** and **Region** tools. The tour reads `configureOpen` from the store to
+  the **Anchor**, **Pointer Line**, and **Region** tools. The tour reads `configureOpen` from the store to
   know when the modal is open, and its tooltips sit at `z-index: 13000` (above the
   `z-[12000]` modals). Each phase shows once and is remembered in `localStorage`
   (`dripfit-tour-intro-seen`, `dripfit-tour-config-seen`, `dripfit-tour-tools-seen`).
