@@ -417,13 +417,13 @@ On the editor's distribution:
 ### 5. Test
 
 Wait for the distribution to finish deploying
-(`aws cloudfront wait distribution-deployed --id <DIST_ID>`), then (using
-`<dist-domain>` = the distribution's domain — its `dxxxx.cloudfront.net` default
-or a custom alias if configured):
+(`aws cloudfront wait distribution-deployed --id <DIST_ID>`), then (the live
+editor is served at `https://dripfit-builder.garusin.com`; substitute your own
+`dxxxx.cloudfront.net` default domain or alias if different):
 
 ```bash
 # Through CloudFront: bad key → 401 { "authenticated": false, ... }
-curl -sS -X POST https://<dist-domain>/api/verify \
+curl -sS -X POST https://dripfit-builder.garusin.com/api/verify \
   -H 'content-type: application/json' \
   -d '{"license_key":"not-a-real-key"}'
 
