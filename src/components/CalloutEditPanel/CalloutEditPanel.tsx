@@ -12,6 +12,7 @@ export function CalloutEditPanel() {
   );
   const updateCallout = useEditorStore((s) => s.updateCallout);
   const updateCalloutBeacon = useEditorStore((s) => s.updateCalloutBeacon);
+  const updateCalloutShape = useEditorStore((s) => s.updateCalloutShape);
   const setCalloutProducts = useEditorStore((s) => s.setCalloutProducts);
   const deleteCallout = useEditorStore((s) => s.deleteCallout);
 
@@ -60,8 +61,8 @@ export function CalloutEditPanel() {
         )}
 
         {/* Beacon — the animated indicator shown in the visualiser. Position is
-            region-only (circles anchor at their centre); size & color apply to
-            both callout types. */}
+            region-only (circles anchor at their centre, lines at the non-bullet
+            end); size & color apply to every callout type. */}
         <div className="flex flex-col gap-2">
           <span className="text-xs font-medium text-slate-500">Beacon</span>
 
@@ -102,6 +103,41 @@ export function CalloutEditPanel() {
               className="h-8 w-16 cursor-pointer rounded border border-slate-300 bg-white p-0.5"
             />
           </div>
+
+          {shape.type === 'line' && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-slate-500">Bullet end</span>
+              <div className="flex gap-1">
+                {(['start', 'end'] as const).map((end) => {
+                  const active = shape.bulletEnd === end;
+                  return (
+                    <button
+                      key={end}
+                      type="button"
+                      onClick={() =>
+                        updateCalloutShape(callout.id, {
+                          ...shape,
+                          bulletEnd: end,
+                        })
+                      }
+                      aria-pressed={active}
+                      className={[
+                        'flex-1 rounded border px-2 py-1 text-xs',
+                        active
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-100',
+                      ].join(' ')}
+                    >
+                      {capitalize(end)}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-[11px] text-slate-400">
+                The beacon sits at the opposite end.
+              </span>
+            </div>
+          )}
 
           {shape.type === 'region' && (
             <div className="flex flex-col gap-1">

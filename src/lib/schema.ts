@@ -14,7 +14,7 @@ import { normalizeHexColor } from './color';
 
 export const DEFAULT_API_VERSION = '2025-01';
 
-export type ShapeType = 'circle' | 'region';
+export type ShapeType = 'circle' | 'region' | 'line';
 
 export interface Point {
   x: number;
@@ -24,7 +24,25 @@ export interface Point {
 export type CircleShape = { type: 'circle'; cx: number; cy: number; r: number };
 
 export type RegionShape = { type: 'region'; points: Point[] };
-export type Shape = CircleShape | RegionShape;
+
+/** A pointer line: a straight segment between two endpoints. One end carries the
+ *  beacon, the other a bullet/dot; `bulletEnd` says which end is the bullet (the
+ *  beacon anchors to the opposite end). Both ends are clickable in the Visualizer. */
+export type LineShape = {
+  type: 'line';
+  start: Point;
+  end: Point;
+  bulletEnd: 'start' | 'end';
+};
+
+export type Shape = CircleShape | RegionShape | LineShape;
+
+/** Smallest allowed distance (ratio units) between a line's endpoints, so a
+ *  pointer line can never collapse to a zero-length, un-clickable point. */
+export const MIN_LINE_LENGTH = 0.01;
+
+/** Default stroke width (px) of a pointer line's visible connecting segment. */
+export const DEFAULT_LINE_WIDTH = 4;
 
 /** Where the visualiser shows a region's beacon (the animated indicator),
  *  relative to the region's bounding box. Circles always use 'center' (the
@@ -102,12 +120,19 @@ export function beaconPoint(
 }
 
 /** Resolve a beacon's (ratio) coordinate for any shape: the region's bbox anchor,
- *  or the circle's centre (where `position` is ignored). */
+ *  the circle's centre, or a line's end opposite the bullet (where `position` is
+ *  ignored for both circle and line). */
 export function resolveBeaconPoint(
   shape: Shape,
   position: BeaconPosition,
 ): { x: number; y: number } {
   if (shape.type === 'circle') return { x: shape.cx, y: shape.cy };
+  // A line's beacon sits at the end opposite the bullet. `position` is inert for
+  // lines (the bullet end is chosen via shape.bulletEnd, not a 9-anchor grid).
+  if (shape.type === 'line') {
+    const p = shape.bulletEnd === 'start' ? shape.end : shape.start;
+    return { x: p.x, y: p.y };
+  }
   return beaconPoint(shape.points, position);
 }
 
@@ -176,6 +201,18 @@ export interface DripfitConfigData {
   products: Record<string, ProductSnapshot>;
 }
 
+/** Global "selected product card" display options — one setting for the whole
+ *  config, not per-callout. `shape` is the replacing card's image shape;
+ *  `details` is whether its title + View-product link always show (`details`) or
+ *  hide behind an ⓘ button (`info`). The Visualizer reads these off the config
+ *  (attribute overrides win over the config value). */
+export interface DisplayOptions {
+  shape: 'square' | 'circle';
+  details: 'info' | 'details';
+}
+export const DEFAULT_CARD_SHAPE: DisplayOptions['shape'] = 'square';
+export const DEFAULT_CARD_DETAILS: DisplayOptions['details'] = 'info';
+
 export interface DripfitConfig {
   /** Human-readable name for this config. The Visualizer tags each purchased
    *  product with it (e.g. a cart line-item property) for attribution. */
@@ -184,6 +221,8 @@ export interface DripfitConfig {
   storefrontAPIKey: string;
   shopDomain: string;
   apiVersion: string;
+  /** Global card display options (Square/Circle + Always-show/Hide-details). */
+  display: DisplayOptions;
   data: DripfitConfigData;
 }
 
@@ -249,12 +288,22 @@ function parseCurrentShape(obj: Record<string, unknown>): DripfitConfig {
     storefrontAPIKey: asString(obj.storefrontAPIKey),
     shopDomain: asString(obj.shopDomain),
     apiVersion: asString(obj.apiVersion) || DEFAULT_API_VERSION,
+    display: parseDisplay(obj.display),
     data: {
       mapId: asString(data.mapId),
       image: { width: image.width, height: image.height },
       callouts: data.callouts.map((c, i) => parseCallout(c, i)),
       products: parseProducts(data.products),
     },
+  };
+}
+
+/** Parse the global display options, defaulting anything absent/unrecognized. */
+function parseDisplay(input: unknown): DisplayOptions {
+  const r = asRecord(input);
+  return {
+    shape: r?.shape === 'circle' ? 'circle' : DEFAULT_CARD_SHAPE,
+    details: r?.details === 'details' ? 'details' : DEFAULT_CARD_DETAILS,
   };
 }
 
@@ -277,6 +326,7 @@ function migrateLegacyShape(obj: Record<string, unknown>): DripfitConfig {
     storefrontAPIKey: '',
     shopDomain: '',
     apiVersion: DEFAULT_API_VERSION,
+    display: parseDisplay(obj.display),
     data: {
       mapId: asString(obj.mapId),
       image: { width: image.width, height: image.height },
@@ -419,7 +469,26 @@ function parseShape(input: unknown, index: number): Shape {
     return { type: 'region', points };
   }
 
+  if (s.type === 'line') {
+    const start = parsePoint(s.start);
+    const end = parsePoint(s.end);
+    if (!start || !end) {
+      throw new Error(
+        `dripfit-config: callouts[${index}].shape (line) needs numeric { x, y } start and end`,
+      );
+    }
+    const bulletEnd = s.bulletEnd === 'start' ? 'start' : 'end';
+    return { type: 'line', start, end, bulletEnd };
+  }
+
   throw new Error(
-    `dripfit-config: callouts[${index}].shape.type must be "circle" or "region"`,
+    `dripfit-config: callouts[${index}].shape.type must be "circle", "region", or "line"`,
   );
+}
+
+/** Parse a `{ x, y }` ratio point, or `null` if malformed. */
+function parsePoint(input: unknown): Point | null {
+  const p = input as Record<string, unknown> | null;
+  if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') return null;
+  return { x: p.x, y: p.y };
 }

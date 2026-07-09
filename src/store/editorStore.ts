@@ -6,24 +6,29 @@ import type {
   CalloutProduct,
   ImageMeta,
   DripfitConfig,
+  DisplayOptions,
   Shape,
 } from '../lib/schema';
 import {
   DEFAULT_API_VERSION,
+  DEFAULT_CARD_SHAPE,
+  DEFAULT_CARD_DETAILS,
+  MIN_LINE_LENGTH,
   makeBeacon,
   syncBeacon,
   parseDripfitConfig,
 } from '../lib/schema';
 import { normalizeImageUrl } from '../lib/imageUrl';
 
-export type Tool = 'select' | 'place-point' | 'draw-region';
+export type Tool = 'select' | 'place-point' | 'draw-region' | 'draw-line';
 
 /** How a selected product's card (replacing the beacon in preview) shows its
- *  details: always visible, or hidden behind an info button. Applied globally. */
-export type ProductCardMode = 'details' | 'info';
+ *  details: always visible, or hidden behind an info button. Applied globally.
+ *  Derived from the dripfit-config `display` contract (schema.ts). */
+export type ProductCardMode = DisplayOptions['details'];
 
 /** The selected-product card's image shape in preview. Applied globally. */
-export type ProductCardShape = 'square' | 'circle';
+export type ProductCardShape = DisplayOptions['shape'];
 
 /** Lifecycle of loading a background image from a URL. */
 export type ImageStatus = 'idle' | 'loading' | 'error';
@@ -52,6 +57,9 @@ export interface EditorState {
   selectedCalloutId: string | null;
   tool: Tool;
   draftRegionPoints: Point[];
+  /** First endpoint of a pointer line being drawn (draw-line tool); the second
+   *  click commits the line. Null when no line is in progress. */
+  draftLineStart: Point | null;
 
   // Shopify connection settings (persisted to sessionStorage).
   storefrontApiKey: string;
@@ -79,6 +87,12 @@ export interface EditorState {
   loadImageFromUrl: (url: string) => void;
   setTool: (tool: Tool) => void;
   addPointCallout: (cx: number, cy: number) => string;
+  /** Set the pending first endpoint for a pointer line (first draw-line click). */
+  startLine: (x: number, y: number) => void;
+  /** Commit a pointer line from the pending start to (x, y). No-ops (and clears
+   *  the pending start) if the two points are closer than MIN_LINE_LENGTH. */
+  commitLine: (x: number, y: number) => string | null;
+  clearDraftLine: () => void;
   addRegionPoint: (x: number, y: number) => void;
   clearDraftRegion: () => void;
   commitDraftRegion: (label?: string) => string | null;
@@ -142,6 +156,23 @@ function uuid(): string {
   });
 }
 
+/** Deep-clone a shape so exported callouts can't mutate store state. */
+function cloneShape(shape: Shape): Shape {
+  switch (shape.type) {
+    case 'circle':
+      return { ...shape };
+    case 'region':
+      return { type: 'region', points: shape.points.map((p) => ({ ...p })) };
+    case 'line':
+      return {
+        type: 'line',
+        start: { ...shape.start },
+        end: { ...shape.end },
+        bulletEnd: shape.bulletEnd,
+      };
+  }
+}
+
 const DEFAULT_POINT_RADIUS = 0.02; // ratio of image width
 
 export const useEditorStore = create<EditorState>()(
@@ -156,10 +187,11 @@ export const useEditorStore = create<EditorState>()(
       selectedCalloutId: null,
       tool: 'select',
       draftRegionPoints: [],
+      draftLineStart: null,
       configureOpen: false,
       beaconPreview: false,
-      productCardMode: 'info',
-      productCardShape: 'square',
+      productCardMode: DEFAULT_CARD_DETAILS,
+      productCardShape: DEFAULT_CARD_SHAPE,
       ...loadShopifyConfig(),
 
       setImage: (url, width, height) =>
@@ -239,9 +271,10 @@ export const useEditorStore = create<EditorState>()(
         set(
           (state) => ({
             tool,
-            // Leaving region mode discards any in-progress draft.
+            // Leaving a drawing mode discards any in-progress draft.
             draftRegionPoints:
               tool === 'draw-region' ? state.draftRegionPoints : [],
+            draftLineStart: tool === 'draw-line' ? state.draftLineStart : null,
           }),
           false,
           'setTool',
@@ -264,6 +297,47 @@ export const useEditorStore = create<EditorState>()(
           }),
           false,
           'addPointCallout',
+        );
+        return id;
+      },
+
+      startLine: (x, y) =>
+        set({ draftLineStart: { x, y } }, false, 'startLine'),
+
+      clearDraftLine: () => set({ draftLineStart: null }, false, 'clearDraftLine'),
+
+      commitLine: (x, y) => {
+        const start = get().draftLineStart;
+        if (!start) return null;
+        // Guard against a zero-length line (two clicks in ~the same spot): it
+        // would be invisible and un-clickable, with beacon and bullet coincident.
+        if (Math.hypot(x - start.x, y - start.y) < MIN_LINE_LENGTH) {
+          set({ draftLineStart: null }, false, 'commitLine/degenerate');
+          return null;
+        }
+        const id = uuid();
+        const shape: Shape = {
+          type: 'line',
+          start: { ...start },
+          end: { x, y },
+          bulletEnd: 'end',
+        };
+        const callout: Callout = {
+          id,
+          label: `Pointer Line ${get().callouts.length + 1}`,
+          shape,
+          beacon: makeBeacon(shape),
+          products: [],
+        };
+        set(
+          (state) => ({
+            callouts: [...state.callouts, callout],
+            draftLineStart: null,
+            selectedCalloutId: id,
+            tool: 'select',
+          }),
+          false,
+          'commitLine',
         );
         return id;
       },
@@ -375,14 +449,24 @@ export const useEditorStore = create<EditorState>()(
         ),
 
       exportJson: () => {
-        const { mapId, title, image, callouts, storefrontApiKey, shopDomain, apiVersion } =
-          get();
+        const {
+          mapId,
+          title,
+          image,
+          callouts,
+          storefrontApiKey,
+          shopDomain,
+          apiVersion,
+          productCardShape,
+          productCardMode,
+        } = get();
         return {
           title,
           posterUrl: image?.url ?? '',
           storefrontAPIKey: storefrontApiKey,
           shopDomain,
           apiVersion,
+          display: { shape: productCardShape, details: productCardMode },
           data: {
             mapId,
             image: { width: image?.width ?? 0, height: image?.height ?? 0 },
@@ -390,13 +474,7 @@ export const useEditorStore = create<EditorState>()(
             callouts: callouts.map((c) => ({
               id: c.id,
               label: c.label,
-              shape:
-                c.shape.type === 'circle'
-                  ? { ...c.shape }
-                  : {
-                      type: 'region' as const,
-                      points: c.shape.points.map((p) => ({ ...p })),
-                    },
+              shape: cloneShape(c.shape),
               beacon: { ...c.beacon },
               products: c.products.map((p) => ({ ...p })),
             })),
@@ -429,9 +507,12 @@ export const useEditorStore = create<EditorState>()(
             imageStatus: 'idle',
             imageError: null,
             callouts: doc.data.callouts,
+            productCardShape: doc.display.shape,
+            productCardMode: doc.display.details,
             selectedCalloutId: null,
             tool: 'select',
             draftRegionPoints: [],
+            draftLineStart: null,
             ...cfg,
           },
           false,
@@ -451,6 +532,7 @@ export const useEditorStore = create<EditorState>()(
             selectedCalloutId: null,
             tool: 'select',
             draftRegionPoints: [],
+            draftLineStart: null,
           },
           false,
           'reset',

@@ -12,6 +12,9 @@ dist-ssr
 # Build info
 *.tsbuildinfo
 
+# Lambda deployment artifact (rebuilt from infra/verify-lambda/index.mjs)
+infra/verify-lambda/function.zip
+
 # Claude Code conversation exports
 *-image-mapper-generator-build-p.txt
 

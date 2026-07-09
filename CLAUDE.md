@@ -12,6 +12,11 @@
     driving the UI.
 - Only start the dev server (`npm run dev`) or use browser tools when the user
   says so (e.g. "run it", "check in the browser", "take a screenshot").
+- **Fixed dev ports:** when you do run it, this app is pinned to Vite dev
+  `http://localhost:5173` and preview `4173` (`strictPort`). The full registry of
+  local ports across editor/visualizer/demo-store lives in
+  `../shared-knowledge/local-dev-ports.md` — don't reassign a port without updating
+  that table.
 
 ## Before committing
 
@@ -74,7 +79,15 @@ exports a `dripfit-config` for the Visualizer widget. Coordinates are stored as 
 - **callout** — a placed annotation (was previously "marker").
 - **region** — a polygon-shaped callout (was previously "polygon"); the shape
   `type` value is `"region"`.
-- **point** / **circle** — a circular callout; unchanged.
+- **point** / **circle** — a circular callout; unchanged. **Anchor** is the
+  user-facing label for this tool/type (formerly labelled "POI"). The wire shape
+  `type` value stays `"circle"` — the rename is UI/label-only, not a contract change.
+- **pointer line** — a callout that is a straight line between two endpoints; the
+  shape `type` value is `"line"` (`{ type:"line", start:{x,y}, end:{x,y},
+  bulletEnd:"start"|"end" }`). One end shows the **beacon**, the other a small
+  **bullet** dot; `bulletEnd` says which end is the bullet and the beacon anchors
+  to the opposite end (so `beacon.position` is inert for a line, like a circle).
+  In the Visualizer **both ends are clickable** and open the same product deck.
 - **beacon** — an animated indicator the Visualizer shows for a callout. It lives
   at the **callout level** (`callout.beacon`), and **every** callout (region and
   circle) has one: `{ position, x, y, size, color }`. `position` is one of 9

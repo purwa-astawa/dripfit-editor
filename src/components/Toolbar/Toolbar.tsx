@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import {
   MousePointer2,
-  MapPin,
+  Anchor,
+  Spline,
   Hexagon,
   SlidersHorizontal,
   Download,
@@ -9,15 +10,18 @@ import {
   X,
   Eye,
   EyeOff,
+  LogOut,
 } from 'lucide-react';
 import { useEditorStore, type Tool } from '../../store/editorStore';
 import { ConfigureModal } from '../ConfigureModal/ConfigureModal';
 import { ExportModal } from '../ExportModal/ExportModal';
 import { PreviewCardSettings } from './PreviewCardSettings';
+import { lock, getEmail, DEV_BYPASS } from '../../lib/auth';
 
 const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2 }[] = [
   { id: 'select', label: 'Select', icon: MousePointer2 },
-  { id: 'place-point', label: 'POI', icon: MapPin },
+  { id: 'place-point', label: 'Anchor', icon: Anchor },
+  { id: 'draw-line', label: 'Pointer Line', icon: Spline },
   { id: 'draw-region', label: 'Region', icon: Hexagon },
 ];
 
@@ -34,6 +38,14 @@ export function Toolbar() {
   const setBeaconPreview = useEditorStore((s) => s.setBeaconPreview);
 
   const [exportOpen, setExportOpen] = useState(false);
+
+  // Licensed session (skipped in dev bypass). Signing out clears the unlock flag
+  // and reloads, which re-renders the LicenseGate.
+  const email = getEmail();
+  const signOut = () => {
+    lock();
+    window.location.reload();
+  };
 
   const inRegion = tool === 'draw-region';
   const canFinish = draftRegionPoints.length >= 3;
@@ -139,6 +151,17 @@ export function Toolbar() {
           <Download size={15} />
           Export
         </button>
+        {!DEV_BYPASS && (
+          <button
+            type="button"
+            onClick={signOut}
+            title={email ? `Signed in as ${email} — sign out` : 'Sign out'}
+            aria-label="Sign out"
+            className="flex items-center rounded-md border border-slate-300 bg-white p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <LogOut size={15} />
+          </button>
+        )}
       </div>
 
       <ConfigureModal open={configureOpen} onClose={() => setConfigureOpen(false)} />

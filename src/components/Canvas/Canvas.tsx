@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Circle, Image as KonvaImage, Layer, Line, Stage } from 'react-konva';
+import { Circle, Group, Image as KonvaImage, Layer, Line, Stage } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import useImage from 'use-image';
 import { useEditorStore } from '../../store/editorStore';
@@ -10,9 +10,10 @@ import {
   ratioRadiusToPixel,
   ratioToPixel,
 } from '../../lib/geometry';
-import { BEACON_SIZE_PX } from '../../lib/schema';
+import { BEACON_SIZE_PX, DEFAULT_LINE_WIDTH } from '../../lib/schema';
 import { PointCallout } from './PointCallout';
 import { RegionCallout } from './RegionCallout';
+import { LineCallout } from './LineCallout';
 import { KonvaBeacon } from './KonvaBeacon';
 import { PreviewLayer } from '../Preview/PreviewLayer';
 
@@ -22,11 +23,15 @@ export function Canvas() {
   const tool = useEditorStore((s) => s.tool);
   const selectedCalloutId = useEditorStore((s) => s.selectedCalloutId);
   const draftRegionPoints = useEditorStore((s) => s.draftRegionPoints);
+  const draftLineStart = useEditorStore((s) => s.draftLineStart);
   const beaconPreview = useEditorStore((s) => s.beaconPreview);
 
   const addPointCallout = useEditorStore((s) => s.addPointCallout);
   const addRegionPoint = useEditorStore((s) => s.addRegionPoint);
   const commitDraftRegion = useEditorStore((s) => s.commitDraftRegion);
+  const startLine = useEditorStore((s) => s.startLine);
+  const commitLine = useEditorStore((s) => s.commitLine);
+  const clearDraftLine = useEditorStore((s) => s.clearDraftLine);
   const updateCalloutShape = useEditorStore((s) => s.updateCalloutShape);
   const selectCallout = useEditorStore((s) => s.selectCallout);
 
@@ -114,12 +119,29 @@ export function Canvas() {
       return;
     }
 
+    if (tool === 'draw-line') {
+      if (!isEmptyTarget(e)) {
+        // Clicking a shape mid-draw cancels the pending start.
+        if (draftLineStart) clearDraftLine();
+        return;
+      }
+      const r = pixelToRatio(pos.x, pos.y, box);
+      // First click sets the pending start; second click commits the line.
+      if (draftLineStart) {
+        commitLine(r.x, r.y);
+        setCursor(null);
+      } else {
+        startLine(r.x, r.y);
+      }
+      return;
+    }
+
     // select mode: clicking empty space clears the selection.
     if (isEmptyTarget(e)) selectCallout(null);
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
-    if (beaconPreview || tool !== 'draw-region') return;
+    if (beaconPreview || (tool !== 'draw-region' && tool !== 'draw-line')) return;
     const pos = pointer(e);
     setCursor(pos);
   };
@@ -139,7 +161,9 @@ export function Canvas() {
   ];
 
   const cursorStyle =
-    tool === 'place-point' || tool === 'draw-region' ? 'crosshair' : 'default';
+    tool === 'place-point' || tool === 'draw-region' || tool === 'draw-line'
+      ? 'crosshair'
+      : 'default';
 
   return (
     <div ref={containerRef} className="relative h-full w-full">
@@ -183,34 +207,53 @@ export function Canvas() {
             {/* Editing shapes — hidden while previewing beacons so the canvas
                 shows only what the Visualizer would render. */}
             {!beaconPreview &&
-              callouts.map((c) =>
-                c.shape.type === 'circle' ? (
-                  <PointCallout
-                    key={c.id}
-                    id={c.id}
-                    label={c.label}
-                    shape={c.shape}
-                    box={box}
-                    selected={c.id === selectedCalloutId && tool === 'select'}
-                    onSelect={selectCallout}
-                    onChange={updateCalloutShape}
-                  />
-                ) : (
+              callouts.map((c) => {
+                const isSelected =
+                  c.id === selectedCalloutId && tool === 'select';
+                if (c.shape.type === 'circle') {
+                  return (
+                    <PointCallout
+                      key={c.id}
+                      id={c.id}
+                      label={c.label}
+                      shape={c.shape}
+                      box={box}
+                      selected={isSelected}
+                      onSelect={selectCallout}
+                      onChange={updateCalloutShape}
+                    />
+                  );
+                }
+                if (c.shape.type === 'line') {
+                  return (
+                    <LineCallout
+                      key={c.id}
+                      id={c.id}
+                      label={c.label}
+                      shape={c.shape}
+                      box={box}
+                      selected={isSelected}
+                      draggableWhole={isSelected}
+                      bulletColor={c.beacon.color}
+                      onSelect={selectCallout}
+                      onChange={updateCalloutShape}
+                    />
+                  );
+                }
+                return (
                   <RegionCallout
                     key={c.id}
                     id={c.id}
                     label={c.label}
                     shape={c.shape}
                     box={box}
-                    selected={c.id === selectedCalloutId && tool === 'select'}
-                    draggableWhole={
-                      c.id === selectedCalloutId && tool === 'select'
-                    }
+                    selected={isSelected}
+                    draggableWhole={isSelected}
                     onSelect={selectCallout}
                     onChange={updateCalloutShape}
                   />
-                ),
-              )}
+                );
+              })}
 
             {/* Preview mode: each callout is a transparent (invisible) but
                 clickable hit area that opens its product deck. */}
@@ -247,6 +290,44 @@ export function Canvas() {
                     />
                   );
                 }
+                if (c.shape.type === 'line') {
+                  // Both ends clickable: an invisible hit line along the segment
+                  // (the beacon end is also covered by its KonvaBeacon) plus an
+                  // invisible hit circle over the bullet end.
+                  const a = ratioToPixel(c.shape.start, box);
+                  const b = ratioToPixel(c.shape.end, box);
+                  const bullet = c.shape.bulletEnd === 'start' ? a : b;
+                  const bulletR = Math.max(
+                    8,
+                    BEACON_SIZE_PX[c.beacon.size] / 2,
+                  );
+                  return (
+                    <Group key={c.id}>
+                      <Line
+                        points={[a.x, a.y, b.x, b.y]}
+                        stroke="#000000"
+                        strokeWidth={1}
+                        hitStrokeWidth={16}
+                        opacity={0}
+                        onClick={openThis}
+                        onTap={openThis}
+                        onMouseEnter={hover}
+                        onMouseLeave={unhover}
+                      />
+                      <Circle
+                        x={bullet.x}
+                        y={bullet.y}
+                        radius={bulletR}
+                        fill="#000000"
+                        opacity={0}
+                        onClick={openThis}
+                        onTap={openThis}
+                        onMouseEnter={hover}
+                        onMouseLeave={unhover}
+                      />
+                    </Group>
+                  );
+                }
                 const pts = c.shape.points
                   .map((p) => ratioToPixel(p, box))
                   .flatMap((p) => [p.x, p.y]);
@@ -270,11 +351,12 @@ export function Canvas() {
                 instead, so skip the beacon for those. */}
             {beaconPreview &&
               callouts.map((c) => {
-                if (selection[c.id]) return null;
+                const isSelected = !!selection[c.id];
                 const p = ratioToPixel(c.beacon, box);
-                return (
+                // The beacon is replaced by the selected-product card, so drop it
+                // once a product is picked.
+                const beacon = isSelected ? null : (
                   <KonvaBeacon
-                    key={`beacon-${c.id}`}
                     x={p.x}
                     y={p.y}
                     size={BEACON_SIZE_PX[c.beacon.size]}
@@ -282,6 +364,44 @@ export function Canvas() {
                     onActivate={() => openDeck(c.id)}
                   />
                 );
+                // A pointer line also shows its connecting segment + bullet (the
+                // editing LineCallout is hidden in preview). These stay visible
+                // even after a product is selected so the card still reads as
+                // pointing at the bullet. Clicks are handled by the hit areas.
+                if (c.shape.type === 'line') {
+                  const bullet =
+                    c.shape.bulletEnd === 'start' ? c.shape.start : c.shape.end;
+                  const bp = ratioToPixel(bullet, box);
+                  const sp = ratioToPixel(c.shape.start, box);
+                  const ep = ratioToPixel(c.shape.end, box);
+                  return (
+                    <Group key={`beacon-${c.id}`}>
+                      {/* Visible connecting segment (beacon end ↔ bullet end). */}
+                      <Line
+                        points={[sp.x, sp.y, ep.x, ep.y]}
+                        stroke={c.beacon.color}
+                        strokeWidth={DEFAULT_LINE_WIDTH}
+                        lineCap="round"
+                        listening={false}
+                      />
+                      {beacon}
+                      <Circle
+                        x={bp.x}
+                        y={bp.y}
+                        // Match the bullet size the Visualizer/liquid render.
+                        radius={
+                          Math.max(10, BEACON_SIZE_PX[c.beacon.size] * 0.35) / 2
+                        }
+                        fill={c.beacon.color}
+                        stroke="#ffffff"
+                        strokeWidth={1.5}
+                        listening={false}
+                      />
+                    </Group>
+                  );
+                }
+                if (isSelected) return null;
+                return <Group key={`beacon-${c.id}`}>{beacon}</Group>;
               })}
 
             {/* In-progress region preview. */}
@@ -308,6 +428,32 @@ export function Canvas() {
                 ))}
               </>
             )}
+
+            {/* In-progress pointer-line preview (rubber band from start to cursor). */}
+            {tool === 'draw-line' && draftLineStart && (() => {
+              const s = ratioToPixel(draftLineStart, box);
+              const end = cursor ?? s;
+              return (
+                <>
+                  <Line
+                    points={[s.x, s.y, end.x, end.y]}
+                    stroke="#2563eb"
+                    strokeWidth={1.5}
+                    dash={[6, 4]}
+                    listening={false}
+                  />
+                  <Circle
+                    x={s.x}
+                    y={s.y}
+                    radius={4}
+                    fill="#1d4ed8"
+                    stroke="#2563eb"
+                    strokeWidth={1.5}
+                    listening={false}
+                  />
+                </>
+              );
+            })()}
           </Layer>
         </Stage>
 

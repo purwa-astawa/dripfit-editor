@@ -1,5 +1,12 @@
-import { Circle, Hexagon, Trash2, Tag } from 'lucide-react';
+import { Circle, Hexagon, Spline, Trash2, Tag } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
+import type { ShapeType } from '../../lib/schema';
+
+const SHAPE_ICON: Record<ShapeType, typeof Circle> = {
+  circle: Circle,
+  line: Spline,
+  region: Hexagon,
+};
 
 export function CalloutList() {
   const callouts = useEditorStore((s) => s.callouts);
@@ -24,13 +31,13 @@ export function CalloutList() {
 
       {callouts.length === 0 ? (
         <p className="px-3 py-4 text-sm text-slate-400">
-          No callouts yet. Use the POI or Region tool to add one.
+          No callouts yet. Use the Anchor, Pointer Line, or Region tool to add one.
         </p>
       ) : (
         <ul className="flex-1 overflow-y-auto">
           {callouts.map((c) => {
             const active = c.id === selectedCalloutId;
-            const Icon = c.shape.type === 'circle' ? Circle : Hexagon;
+            const Icon = SHAPE_ICON[c.shape.type];
             return (
               <li key={c.id}>
                 <div
